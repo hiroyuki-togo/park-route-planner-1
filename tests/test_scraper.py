@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from src.scraper import parse_json_to_entries
+from src.models import WaitTimeEntry
+from src.scraper import match_attraction_by_scrape_key, parse_json_to_entries
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample_realtime.json"
@@ -35,3 +36,20 @@ def test_parse_status_unknown_when_no_data():
     entries = parse_json_to_entries(raw)
     assert entries[0].status == "unknown"
     assert entries[0].wait_min is None
+
+
+def test_fuzzy_match_exact():
+    entries = [
+        WaitTimeEntry(name="プーさんのハニーハント", wait_min=30, status="operating"),
+        WaitTimeEntry(name="ビッグサンダー・マウンテン", wait_min=45, status="operating"),
+    ]
+    result = match_attraction_by_scrape_key(entries, "プーさん")
+    assert result.name == "プーさんのハニーハント"
+
+
+def test_fuzzy_match_none():
+    entries = [
+        WaitTimeEntry(name="プーさん", wait_min=30, status="operating"),
+    ]
+    result = match_attraction_by_scrape_key(entries, "存在しないアトラクション")
+    assert result is None
