@@ -7,12 +7,23 @@
 
 ## 1. 必ず参照するファイル
 
-- [docs/superpowers/specs/2026-05-16-tdl-route-planner-design.md](docs/superpowers/specs/2026-05-16-tdl-route-planner-design.md) — **実装仕様書（正本）**
+### セッション開始時に最初に読むもの（必須）
+
+- [PROGRESS.md](PROGRESS.md) — **進捗ハンドオフ**。完了タスク・次の着手点・引き継ぎ判断・既知の課題が集約されている。**毎セッション冒頭で必ず Read すること**
+- [lessons.md](lessons.md) — 過去の教訓・繰り返し回避すべきミス。短いので毎回読んでよい
+
+### 必要に応じて参照するもの
+
+- [docs/superpowers/plans/2026-05-16-tdl-route-planner.md](docs/superpowers/plans/2026-05-16-tdl-route-planner.md) — **実装計画**。次に着手する Task を確認するときに参照
+- [docs/superpowers/specs/2026-05-16-tdl-route-planner-design.md](docs/superpowers/specs/2026-05-16-tdl-route-planner-design.md) — **実装仕様書（正本）**。設計判断の出典
 - [memory.md](memory.md) — プロジェクトの意思決定経緯と背景
 - [archive/ディズニープラン-TDS.md](archive/ディズニープラン-TDS.md) — TDS 向け旧版（参考のみ、追従不要）
 
-セッション開始時、上記2ファイル（仕様書と memory.md）は必要に応じて Read すること。
-全文を初手で読む必要はなく、関連 Phase に入った時点で参照する。
+### 運用ルール
+
+- PROGRESS.md は **セッション完了時に更新** すること。次セッションへの引き継ぎを途切れさせない
+- lessons.md は **東郷さんから指摘・修正を受けた / 想定外の事象が起きた** タイミングで追記
+- 50 行を超えたら古い順に整理してスリム化（CLAUDE.md グローバル原則）
 
 ---
 
