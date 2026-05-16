@@ -2,8 +2,21 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta
+from pathlib import Path
 
-from src.models import WaitTimeEntry
+import requests
+
+from src.models import WaitTimeEntry, WaitTimeSnapshot
+
+
+TDL_JSON_URL = "https://www.tokyodisneyresort.jp/_/realtime/tdl_attraction.json"
+USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+)
+CACHE_TTL_MIN = 5
+REQUEST_TIMEOUT_SEC = 30
 
 
 def parse_json_to_entries(raw: str | list) -> list[WaitTimeEntry]:
@@ -48,3 +61,50 @@ def match_attraction_by_scrape_key(
             best_score = score
             best = e
     return best if best_score >= threshold else None
+
+
+def _is_cache_fresh(last_fetch: datetime | None) -> bool:
+    if last_fetch is None:
+        return False
+    return (datetime.now() - last_fetch) < timedelta(minutes=CACHE_TTL_MIN)
+
+
+def _latest_snapshot_file(snapshot_dir: Path) -> Path | None:
+    files = sorted(snapshot_dir.glob("*.json"))
+    return files[-1] if files else None
+
+
+def _load_snapshot_from_file(path: Path) -> WaitTimeSnapshot:
+    raw = json.loads(path.read_text())
+    return WaitTimeSnapshot.model_validate(raw)
+
+
+def fetch_realtime_wait_times(
+    snapshot_dir: Path = Path("data/snapshots"),
+    force: bool = False,
+) -> WaitTimeSnapshot | None:
+    """公式 JSON API から取得し、失敗時は直近スナップショットにフォールバック。"""
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        resp = requests.get(
+            TDL_JSON_URL,
+            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+            timeout=REQUEST_TIMEOUT_SEC,
+        )
+        resp.raise_for_status()
+        entries = parse_json_to_entries(resp.text)
+        snapshot = WaitTimeSnapshot(
+            timestamp=datetime.now(),
+            park="TDL",
+            data=entries,
+        )
+        ts = snapshot.timestamp.strftime("%Y-%m-%d_%H%M")
+        (snapshot_dir / f"{ts}.json").write_text(snapshot.model_dump_json())
+        return snapshot
+
+    except Exception:
+        latest = _latest_snapshot_file(snapshot_dir)
+        if latest:
+            return _load_snapshot_from_file(latest)
+        return None
