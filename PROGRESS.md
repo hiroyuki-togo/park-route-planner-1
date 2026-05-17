@@ -2,7 +2,7 @@
 
 > 次セッションの Claude Code が状況を即時把握するための引き継ぎファイル。
 
-**最終更新**: 2026-05-17
+**最終更新**: 2026-05-17（Task 9-11 完了後）
 **来園日**: 2026-05-25（月）
 **残り日数**: 8 日
 
@@ -10,12 +10,12 @@
 
 ## 1. 現在のステータス
 
-**Phase 1 + Phase 2 完了**。9 コミット、20/20 テスト PASS。
+**Phase 1 + Phase 2 + Phase 3（コード側）完了**。12 コミット、テスト 24 件中 22 PASS / 2 FAIL（FAIL は人力作業待ちの意図的なもの）。
 プラン §10 想定スケジュールに対して **1 日先行**。
 
 ---
 
-## 2. 完了済みタスク（Task 1〜8）
+## 2. 完了済みタスク（Task 1〜11）
 
 | Task | 内容 | コミット |
 |---|---|---|
@@ -29,23 +29,31 @@
 | 6 | `src/scraper.py` JSON パース + 4 テスト | `4869122` |
 | 7 | ファジーマッチ追加 + 2 テスト | `e09a3bd` |
 | 8 | fetch + 5 分キャッシュ + フォールバック + 3 テスト | `7b13478` |
+| 9 | `scripts/generate_attractions_template.py` + `data/attractions.json`（21 件、座標 null） | `98dd811` |
+| 10 | `scripts/generate_restaurants_template.py` + `data/restaurants.json`（10 件、座標 null） | `06d02f3` |
+| 11 | `tests/test_masters.py`（妥当性検証、6 件中 2 件は座標埋め完了まで意図的 FAIL） | `4bc25ed` |
 
 ---
 
-## 3. 次にやること（明日 5/18 月〜）
+## 3. 次にやること
 
-### 即時の次タスク：**Task 9（attractions.json 雛形生成）**
+### Phase 3 完了の最終ピース：**東郷さんによる座標入力（人力、30〜40 分）**
 
-[実装計画 Task 9](docs/superpowers/plans/2026-05-16-tdl-route-planner.md) を参照。`scripts/generate_attractions_template.py` を作成して実行 → `data/attractions.json` を生成。
+Claude Code は代行不可。以下を実施：
 
-### Phase 3 の人力ボトルネック
+1. Google マップで [data/attractions.json](data/attractions.json) の 21 件と [data/restaurants.json](data/restaurants.json) の 10 件、各入口を検索
+2. 右クリック → 座標コピーで lat/lng を取得し、`null` を実数値で置換
+3. 美女と野獣の `requires_reservation` が現状の運用と合っているか公式サイトで確認（変わっていれば修正）
+4. 完了後 `.venv/bin/pytest tests/test_masters.py -v` を実行。全 6 PASS になれば Phase 3 完了
 
-Task 9・10 でマスタ雛形を生成した後、**東郷さんが Google マップで座標を手入力する作業（30〜40 分）が必須**。これは Claude Code が代行できない。Task 11 のテスト `test_attractions_coordinates_filled` が PASS になるまで Phase 4 に進めない。
+### その後：Task 12（Phase 4：距離計算 + 雨天モード）
 
-### 残り Phase スケジュール（プラン §10）
+`src/distance.py` の TDD 実装。プラン Task 12-15 を参照。
 
-- 5/18 月 → Phase 4（距離・予測）
-- 5/19 火 → Phase 3 の人力部分
+### 残り Phase スケジュール（プラン §10、1 日先行で更新）
+
+- 5/18 月 → Phase 3 人力（座標入力） + Phase 4 着手（距離・予測）
+- 5/19 火 → Phase 4 仕上げ + Phase 5 着手
 - 5/20-21 水木 → Phase 5（ルート生成 TDD）
 - 5/22-23 金土 → Phase 6（Streamlit UI）
 - 5/24 日 → Phase 7（デプロイ）+ リハーサル
@@ -122,7 +130,14 @@ JSON エンドポイント：`https://www.tokyodisneyresort.jp/_/realtime/tdl_at
 
 ## 8. 次セッション開始時のおすすめプロンプト
 
+**座標入力済みの場合：**
 ```
-ディズニーランドのルート生成ツール、Phase 3 から続きをお願いします。
-PROGRESS.md と CLAUDE.md を読んで状況を把握してから、Task 9（attractions.json 雛形生成）に着手してください。
+ディズニーランドのルート生成ツール、Phase 4 から続きをお願いします。
+PROGRESS.md と CLAUDE.md を読んで状況を把握してから、まず `.venv/bin/pytest tests/test_masters.py -v` で Phase 3 完了を確認し、Task 12（距離計算）に着手してください。
+```
+
+**座標入力がまだの場合：**
+```
+ディズニーランドのルート生成ツール、進めます。
+PROGRESS.md と CLAUDE.md を読んで状況を把握してから、Phase 4 の Task 12（距離計算 TDD）に着手してください。座標は仮値で OK、Phase 3 の人力部分は並行で進めます。
 ```
