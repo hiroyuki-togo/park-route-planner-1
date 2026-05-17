@@ -1,0 +1,145 @@
+{
+  "park": "TDL",
+  "restaurants": [
+    {
+      "id": "blue_bayou",
+      "name": "ブルーバイユー・レストラン",
+      "area": "アドベンチャーランド",
+      "lat": null,
+      "lng": null,
+      "type": "table_service",
+      "ps_available": true,
+      "typical_duration_min": 90,
+      "open_window": [
+        "11:00",
+        "21:30"
+      ]
+    },
+    {
+      "id": "crystal_palace",
+      "name": "クリスタルパレス・レストラン",
+      "area": "ワールドバザール",
+      "lat": null,
+      "lng": null,
+      "type": "buffet",
+      "ps_available": true,
+      "typical_duration_min": 75,
+      "open_window": [
+        "11:00",
+        "21:30"
+      ]
+    },
+    {
+      "id": "eastside_cafe",
+      "name": "イーストサイド・カフェ",
+      "area": "ワールドバザール",
+      "lat": null,
+      "lng": null,
+      "type": "table_service",
+      "ps_available": true,
+      "typical_duration_min": 75,
+      "open_window": [
+        "11:00",
+        "21:30"
+      ]
+    },
+    {
+      "id": "hokusai",
+      "name": "れすとらん北齋",
+      "area": "ワールドバザール",
+      "lat": null,
+      "lng": null,
+      "type": "table_service",
+      "ps_available": true,
+      "typical_duration_min": 75,
+      "open_window": [
+        "11:00",
+        "21:30"
+      ]
+    },
+    {
+      "id": "diamond_horseshoe",
+      "name": "ザ・ダイヤモンドホースシュー",
+      "area": "ウエスタンランド",
+      "lat": null,
+      "lng": null,
+      "type": "buffet",
+      "ps_available": true,
+      "typical_duration_min": 75,
+      "open_window": [
+        "11:30",
+        "20:30"
+      ]
+    },
+    {
+      "id": "pan_galactic",
+      "name": "パン・ギャラクティック・ピザ・ポート",
+      "area": "トゥモローランド",
+      "lat": null,
+      "lng": null,
+      "type": "counter_service",
+      "ps_available": false,
+      "typical_duration_min": 35,
+      "open_window": [
+        "10:30",
+        "21:00"
+      ]
+    },
+    {
+      "id": "plazma_rays",
+      "name": "プラズマ・レイズ・ダイナー",
+      "area": "トゥモローランド",
+      "lat": null,
+      "lng": null,
+      "type": "counter_service",
+      "ps_available": false,
+      "typical_duration_min": 35,
+      "open_window": [
+        "10:30",
+        "21:00"
+      ]
+    },
+    {
+      "id": "hungry_bear",
+      "name": "ハングリーベア・レストラン",
+      "area": "ウエスタンランド",
+      "lat": null,
+      "lng": null,
+      "type": "counter_service",
+      "ps_available": false,
+      "typical_duration_min": 35,
+      "open_window": [
+        "10:30",
+        "21:00"
+      ]
+    },
+    {
+      "id": "queen_of_hearts",
+      "name": "クイーン・オブ・ハートのバンケットホール",
+      "area": "ファンタジーランド",
+      "lat": null,
+      "lng": null,
+      "type": "counter_service",
+      "ps_available": false,
+      "typical_duration_min": 35,
+      "open_window": [
+        "10:30",
+        "21:00"
+      ]
+    },
+    {
+      "id": "huey_dewey_louie",
+      "name": "ヒューイ・デューイ・ルーイのグッドタイム・カフェ",
+      "area": "トゥーンタウン",
+      "lat": null,
+      "lng": null,
+      "type": "counter_service",
+      "ps_available": false,
+      "typical_duration_min": 35,
+      "open_window": [
+        "10:30",
+        "21:00"
+      ]
+    }
+  ]
+}
