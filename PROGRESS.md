@@ -2,7 +2,7 @@
 
 > 次セッションの Claude Code が状況を即時把握するための引き継ぎファイル。
 
-**最終更新**: 2026-05-17（Phase 3 完全完了後）
+**最終更新**: 2026-05-17（Phase 4 完了後）
 **来園日**: 2026-05-25（月）
 **残り日数**: 8 日
 
@@ -10,8 +10,8 @@
 
 ## 1. 現在のステータス
 
-**Phase 1 + Phase 2 + Phase 3 完全完了**。14 コミット、**テスト 26/26 PASS**。
-プラン §10 想定スケジュールに対して **2 日先行**（座標入力を 5/17 に前倒し完了）。
+**Phase 1〜4 完了**。16 コミット、**テスト 37/37 PASS**。
+プラン §10 想定スケジュールに対して **3 日先行**。
 
 ---
 
@@ -34,31 +34,42 @@
 | 11 | `tests/test_masters.py`（妥当性検証 6 件） | `4bc25ed` |
 | 9.5 | xlsx 入力/インポートワークフロー（プラン外、東郷さんの作業効率化） | `7688133` |
 | 9.6 | 全 31 件の座標を Excel 経由で取り込み、test_masters.py 全 PASS | `238438a` |
+| 12 | `src/distance.py` 距離計算（パーク係数・雨天・パレード横断）4 テスト | `68e6358` |
+| 13 | `src/predictor.py` 待ち時間予測（時間帯×人気度、雨天屋外/屋内）7 テスト | `782c7de` |
 
 ---
 
 ## 3. 次にやること
 
-### 即時の次タスク：**Task 12（Phase 4：距離計算 + 雨天モード）**
+### 即時の次タスク：**Task 14（Phase 5：ルーター 共通フィクスチャと最小ケース）**
 
-[実装計画 Task 12](docs/superpowers/plans/2026-05-16-tdl-route-planner.md) を参照。`src/distance.py` を TDD で実装：
+[実装計画 Task 14](docs/superpowers/plans/2026-05-16-tdl-route-planner.md#task-14) を参照。
 
-- `travel_time_min(from_loc, to_loc, rain=False)` — geopy で直線距離 → 歩行速度 80m/min（雨天時 1.7 倍）
-- ファジーマッチで「同エリア内」「城を跨ぐ移動」のテストケース
-- パレード時間帯のメインストリート横断ペナルティ +15 分
+- `tests/conftest.py` に `sample_attractions` / `operating_snapshot` / `all_closed_snapshot` fixture を作る
+- `src/router.py` に `generate_route()` の骨格を実装
+- 最小ケース 2 件（全クローズ → 空 / 通常営業 → 高 priority 訪問）が PASS する
 
-### その先
+### Phase 5 の全体像（Task 14〜19、6 タスク）
 
-- Task 13: 待ち時間予測（時間帯係数、雨天屋外 -30% / 屋内 +20%）
-- Task 14-15: experience_value 計算と pacing 制約
+| Task | 内容 |
+|---|---|
+| 14 | 共通フィクスチャ + 最小ケース |
+| 15 | must-visit 優先プール |
+| 16 | DPA ブロック取り込み |
+| 17 | 食事ブロックで current_location 更新 |
+| 18 | 雨天モード時の屋外優先度ダウン |
+| 19 | requires_reservation 未予約 + must の警告 |
 
-### 残り Phase スケジュール（プラン §10、2 日先行で更新）
+Phase 5 完了後は Phase 6（Streamlit UI）。残り 8 日に対して 3 日先行しているので、慌てず TDD で 1 タスクずつ。
 
-- 5/18 月 → Phase 4（距離・予測）まるごと
-- 5/19 火 → Phase 5 着手（ルート生成 TDD）
-- 5/20-21 水木 → Phase 5 仕上げ + Phase 6 着手
-- 5/22-23 金土 → Phase 6（Streamlit UI）仕上げ
-- 5/24 日 → Phase 7（デプロイ）+ リハーサル（バッファ十分）
+### 残り Phase スケジュール（プラン §10、3 日先行で更新）
+
+- 5/18 月 → Phase 5（ルート生成）着手・前半
+- 5/19 火 → Phase 5 仕上げ
+- 5/20 水 → Phase 6（Streamlit UI）着手
+- 5/21-22 木金 → Phase 6 仕上げ
+- 5/23 土 → Phase 7（デプロイ）+ リハーサル
+- 5/24 日 → 予備日（不具合対応・微調整）
 - 5/25 月 → 来園日
 
 ---
@@ -133,6 +144,6 @@ JSON エンドポイント：`https://www.tokyodisneyresort.jp/_/realtime/tdl_at
 ## 8. 次セッション開始時のおすすめプロンプト
 
 ```
-ディズニーランドのルート生成ツール、Phase 4 から続きをお願いします。
-PROGRESS.md と CLAUDE.md を読んで状況を把握してから、Task 12（距離計算 TDD）に着手してください。
+ディズニーランドのルート生成ツール、Phase 5 から続きをお願いします。
+PROGRESS.md と CLAUDE.md を読んで状況を把握してから、Task 14（ルーター共通フィクスチャ + 最小ケース TDD）に着手してください。
 ```
