@@ -11,6 +11,7 @@ dependencies = [
     "geopy>=2.4",
     "pandas>=2.2",
     "streamlit-local-storage>=0.0.21",
+    "openpyxl>=3.1",
 ]
 
 [project.optional-dependencies]

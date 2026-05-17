@@ -63,7 +63,7 @@ def main():
     }
     out = Path("data/attractions.json")
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    out.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     print(f"Wrote {len(data['attractions'])} attractions to {out}")
 
 
