@@ -15,7 +15,7 @@
 
 ---
 
-## 2. 完了済みタスク（Task 1〜11）
+## 2. 完了済みタスク（Task 1〜13）
 
 | Task | 内容 | コミット |
 |---|---|---|
@@ -51,16 +51,23 @@
 
 ### Phase 5 の全体像（Task 14〜19、6 タスク）
 
-| Task | 内容 |
-|---|---|
-| 14 | 共通フィクスチャ + 最小ケース |
-| 15 | must-visit 優先プール |
-| 16 | DPA ブロック取り込み |
-| 17 | 食事ブロックで current_location 更新 |
-| 18 | 雨天モード時の屋外優先度ダウン |
-| 19 | requires_reservation 未予約 + must の警告 |
+| Task | 内容 | プラン行 |
+|---|---|---|
+| 14 | 共通フィクスチャ + 最小ケース | 1398〜 |
+| 15 | must-visit 優先プール | 1674〜 |
+| 16 | DPA ブロック取り込み | 1728〜 |
+| 17 | 食事ブロックで current_location 更新 | 1972〜 |
+| 18 | 雨天モード時の屋外優先度ダウン | 2027〜 |
+| 19 | requires_reservation 未予約 + must の警告 | 2074〜 |
 
 Phase 5 完了後は Phase 6（Streamlit UI）。残り 8 日に対して 3 日先行しているので、慌てず TDD で 1 タスクずつ。
+
+### Phase 5 着手時の注意
+
+- **Task 14 の `src/router.py` は規模が大きい**（〜200 行）。プラン本文に全コードが書かれているので、写経 → テストで通すパターン
+- **Task 15-18 は「既にカバー済みのはず」と注記された expected あり**（プラン 1717 / 2016 / 2063 行）。Task 14 で `_candidate_pool` / `_handle_fixed_block` / weather factor を最初から含めて実装することで、追加テストが PASS する設計
+- **conftest.py の fixture が Phase 5 全タスクで共有**される。最初に丁寧に作ること。プラン 1405〜 にコード全文あり
+- **回帰ベースライン: 37/37 PASS**（Phase 4 完了時点）。Phase 5 で新規追加するテストは 15 件前後の見込み
 
 ### 残り Phase スケジュール（プラン §10、3 日先行で更新）
 
@@ -96,18 +103,19 @@ JSON エンドポイント：`https://www.tokyodisneyresort.jp/_/realtime/tdl_at
 
 | 項目 | 対処タイミング |
 |---|---|
-| `get_time_factor(21)` がフォールスルーで `1.0` を返す。閉園時刻のガード未実装 | Task 13（predictor）実装時に予測時刻が CLOSE_TIME を超えないことを呼び出し側で保証するか、関数内で ValueError を投げるか判断 |
+| `get_time_factor(21)` がフォールスルーで `1.0` を返す。閉園時刻のガード未実装 | Task 13 では呼び出し側保証を選択（未実装）。Phase 5 ルーター実装時に target_time が CLOSE_TIME を超えないことをルーター側で担保すれば実害なし |
 | `pyproject.toml` に `beautifulsoup4` が残っているが scraper では未使用 | Phase 7 で `requirements.txt` 生成時に判断（残してもサイズ影響軽微） |
 | `.claude/` ディレクトリが untracked のまま | 必要なら `.gitignore` に追記。今は無害 |
+| omnibus の初期入力座標が TDL 範囲外（駐車場付近）→ 東郷さんと相談しワールドバザール内に修正済 | 解決済（`238438a`）。同種のミス防止のため lessons.md #11 に分布ベース sanity check を記録 |
 
 ### ライブ API のレート制限
 
-セッション最終確認で `fetch_realtime_wait_times()` の実 API 呼び出しが **タイムアウト** した。原因の可能性：
+過去セッションで `fetch_realtime_wait_times()` の実 API 呼び出しが **タイムアウト** したことあり。原因の可能性：
 
 - Task 5 で 1.8MB HTML をダウンロードした直後の連続アクセス → IP ベースのレート制限
 - アプリ側のキャッシュ（5 分 TTL）と無関係に、外側のネットワーク層で抑制された
 
-**対処**：時間を置けば回復するはず。次回起動時に再確認すること。コードロジック上の問題ではない（オフラインテスト 20/20 PASS）。
+**対処**：時間を置けば回復するはず。コードロジック上の問題ではない（オフラインテスト 37/37 PASS）。Phase 5 はルーター実装で実 API を叩く必要なし。Phase 6（Streamlit UI）の動作確認時に再確認。
 
 ### 確定した設計判断
 
@@ -145,5 +153,12 @@ JSON エンドポイント：`https://www.tokyodisneyresort.jp/_/realtime/tdl_at
 
 ```
 ディズニーランドのルート生成ツール、Phase 5 から続きをお願いします。
-PROGRESS.md と CLAUDE.md を読んで状況を把握してから、Task 14（ルーター共通フィクスチャ + 最小ケース TDD）に着手してください。
+PROGRESS.md と CLAUDE.md を読んで状況を把握してから、まず `.venv/bin/pytest -q` で 37/37 PASS を確認、それから Task 14（ルーター共通フィクスチャ + 最小ケース TDD）に着手してください。
 ```
+
+### 引き継ぎチェックリスト（次セッション冒頭で確認すること）
+
+- [ ] `git log --oneline -5` で最新コミットが `15e3cf2 docs: update PROGRESS after Phase 4 completion` であること
+- [ ] `git status` でクリーン
+- [ ] `.venv/bin/pytest -q` で **37 passed**
+- [ ] 上記が揃ったら CLAUDE.md / lessons.md を読み、Task 14 のプラン（1398〜）を Read してから TDD 着手
