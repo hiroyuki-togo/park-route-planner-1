@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from pydantic import BaseModel
 
-from src.constants import EXP_VALUE
+from src.constants import DPA_WAIT_MIN, EXP_VALUE
 from src.distance import travel_time_min
 from src.models import (
     Attraction,
@@ -86,6 +86,7 @@ def generate_route(
     weather_mode: str = "normal",
 ) -> RouteResult:
     """ルートを生成する。"""
+    attractions_by_id = {a.id: a for a in attractions}
     current_time = constraints.start_time
     current_location = constraints.entrance
     current_area: str | None = None
@@ -93,10 +94,37 @@ def generate_route(
     must_remaining = set(must_visits)
     steps: list[RouteStep] = []
     warnings: list[Warning] = []
+    blocks = sorted(constraints.fixed_blocks, key=lambda b: b.start)
 
     while current_time < constraints.close_time:
+        # (A) 固定ブロック消化
+        if blocks and blocks[0].start <= current_time:
+            block = blocks.pop(0)
+            step = _handle_fixed_block(block, current_time, current_location, attractions_by_id)
+            if step is None:
+                warnings.append(Warning(
+                    kind="dpa_window_missed",
+                    message=f"DPA 窓に間に合わず: {block.label}",
+                    attraction_id=block.attraction_id,
+                ))
+                current_time = block.end
+                continue
+            steps.append(step)
+            current_time = block.end
+            if block.location:
+                current_location = block.location
+            if block.type == "dpa" and block.attraction_id:
+                visited.add(block.attraction_id)
+                must_remaining.discard(block.attraction_id)
+            continue
+
+        # (B) 通常候補
         candidates = _candidate_pool(attractions, snapshot, visited)
         if not candidates:
+            # 候補なしでも固定ブロックが残っていれば、その時刻まで待機して消化
+            if blocks:
+                current_time = blocks[0].start
+                continue
             break
 
         pending_must = [c for c in candidates if c.id in must_remaining]
@@ -112,6 +140,42 @@ def generate_route(
         ]
         (best_score, travel, wait), best = max(scored, key=lambda x: x[0][0])
         cost = travel + wait + best.experience_time_min
+
+        # 次の固定ブロックまでに収まらない場合の分岐
+        next_block_start = blocks[0].start if blocks else constraints.close_time
+        time_until_block_min = (next_block_start - current_time).total_seconds() / 60
+        if cost > time_until_block_min:
+            if pending_must:
+                # must は他の任意候補を後回しにしてでも入れたい
+                if blocks:
+                    # 固定ブロックを先に消化してから再挑戦
+                    current_time = next_block_start
+                    continue
+                # 固定ブロックなし = 閉園までに物理的に入らない → この must を諦める
+                # （ループ終了処理で time_conflict 警告を出す）
+                must_remaining_size_before = len(must_remaining)
+                must_remaining.discard(best.id)
+                if len(must_remaining) == must_remaining_size_before:
+                    # 何も外せなかった = ループが止まらないので break
+                    break
+                continue
+            # 任意候補は fit_pool で絞って再評価
+            fit_pool = []
+            for a in candidates:
+                s, t, w = _score(
+                    a, current_time, current_location, current_area,
+                    snapshot, priorities.get(a.id, 1),
+                    constraints.fixed_blocks, weather_mode,
+                )
+                if t + w + a.experience_time_min <= time_until_block_min:
+                    fit_pool.append(((s, t, w), a))
+            if fit_pool:
+                (best_score, travel, wait), best = max(fit_pool, key=lambda x: x[0][0])
+                cost = travel + wait + best.experience_time_min
+            else:
+                # 収まる候補なし → 固定ブロック時刻まで current_time を進める
+                current_time = next_block_start
+                continue
 
         if current_time + timedelta(minutes=cost) > constraints.close_time:
             break
@@ -132,8 +196,76 @@ def generate_route(
         visited.add(best.id)
         must_remaining.discard(best.id)
 
+    # 終了処理：未消化の DPA ブロックを警告に
+    for block in blocks:
+        if block.type == "dpa" and block.attraction_id:
+            warnings.append(Warning(
+                kind="dpa_window_missed",
+                message=f"DPA 時間内に到達できず: {block.label}",
+                attraction_id=block.attraction_id,
+            ))
+
+    # 終了処理：物理的に訪問できなかった must を警告に
+    for must_id in sorted(must_remaining):
+        warnings.append(Warning(
+            kind="time_conflict",
+            message=f"時間内に訪問できず: {must_id}",
+            attraction_id=must_id,
+        ))
+
     return RouteResult(
         steps=steps,
         unvisited_musts=sorted(must_remaining),
         warnings=warnings,
     )
+
+
+def _handle_fixed_block(
+    block: FixedBlock,
+    current_time: datetime,
+    current_location: tuple[float, float],
+    attractions_by_id: dict[str, Attraction],
+) -> RouteStep | None:
+    """固定ブロックをルートステップに変換する。間に合わない DPA は None を返す。"""
+    if block.type == "dpa":
+        if not block.attraction_id or not block.location:
+            return None
+        attraction = attractions_by_id.get(block.attraction_id)
+        if attraction is None:
+            return None
+        travel = travel_time_min(
+            current_location, block.location,
+            current_time, [], weather_mode="normal",
+        )
+        arrive = current_time + timedelta(minutes=travel)
+        if arrive > block.end:
+            return None
+        actual_start = max(arrive, block.start)
+        wait_min = DPA_WAIT_MIN
+        ride_start = actual_start + timedelta(minutes=wait_min)
+        ride_end = ride_start + timedelta(minutes=attraction.experience_time_min)
+        return RouteStep(
+            type="dpa", id=block.attraction_id,
+            arrive=arrive, ride_start=ride_start, ride_end=ride_end,
+            travel_min=travel, wait_min=wait_min, via="dpa",
+            label=block.label,
+        )
+    if block.type == "meal":
+        return RouteStep(
+            type="meal", id=block.restaurant_id,
+            arrive=block.start, ride_start=block.start, ride_end=block.end,
+            travel_min=0, wait_min=0, via=None, label=block.label,
+        )
+    if block.type == "show":
+        return RouteStep(
+            type="show", id=None,
+            arrive=block.start, ride_start=block.start, ride_end=block.end,
+            travel_min=0, wait_min=0, via=None, label=block.label,
+        )
+    if block.type == "parade":
+        return RouteStep(
+            type="parade", id=None,
+            arrive=block.start, ride_start=block.start, ride_end=block.end,
+            travel_min=0, wait_min=0, via=None, label=block.label,
+        )
+    return None

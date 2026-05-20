@@ -1,6 +1,7 @@
 """ルーター（generate_route）のテスト。"""
 from datetime import datetime
 
+from src.models import FixedBlock
 from src.router import RouteConstraints, generate_route
 
 
@@ -67,3 +68,35 @@ def test_unvisited_must_returned(sample_attractions, operating_snapshot):
         must_visits={"big_thunder"},
     )
     assert "big_thunder" in result.unvisited_musts
+
+
+def test_dpa_block_visits_reserved_attraction(sample_attractions, operating_snapshot):
+    """DPA ブロックが指定時間に消化され、requires_reservation のアトラクションが訪問される。"""
+    constraints = RouteConstraints(
+        start_time=datetime(2026, 5, 25, 9, 0),
+        close_time=datetime(2026, 5, 25, 21, 0),
+        entrance=(35.6329, 139.8804),
+        fixed_blocks=[
+            FixedBlock(
+                type="dpa",
+                start=datetime(2026, 5, 25, 10, 30),
+                end=datetime(2026, 5, 25, 11, 30),
+                label="DPA: 美女と野獣",
+                attraction_id="beauty_and_beast",
+                location=(35.6336, 139.8808),
+            ),
+        ],
+    )
+    result = generate_route(
+        snapshot=operating_snapshot,
+        attractions=sample_attractions,
+        constraints=constraints,
+        priorities={"pooh": 5, "big_thunder": 5, "beauty_and_beast": 5},
+        must_visits={"beauty_and_beast"},
+    )
+    dpa_steps = [s for s in result.steps if s.type == "dpa"]
+    assert len(dpa_steps) == 1
+    assert dpa_steps[0].id == "beauty_and_beast"
+    assert dpa_steps[0].via == "dpa"
+    assert dpa_steps[0].wait_min == 15
+    assert "beauty_and_beast" not in result.unvisited_musts
