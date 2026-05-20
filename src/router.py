@@ -41,11 +41,13 @@ def _candidate_pool(
     attractions: Iterable[Attraction],
     snapshot: WaitTimeSnapshot,
     visited: set[str],
+    priorities: dict[str, int],
 ) -> list[Attraction]:
     return [
         a for a in attractions
         if a.id not in visited
         and not a.requires_reservation
+        and priorities.get(a.id, a.default_priority) > 0
         and _is_operating(a, snapshot)
     ]
 
@@ -119,7 +121,7 @@ def generate_route(
             continue
 
         # (B) 通常候補
-        candidates = _candidate_pool(attractions, snapshot, visited)
+        candidates = _candidate_pool(attractions, snapshot, visited, priorities)
         if not candidates:
             # 候補なしでも固定ブロックが残っていれば、その時刻まで待機して消化
             if blocks:
@@ -133,7 +135,7 @@ def generate_route(
         scored = [
             (_score(
                 a, current_time, current_location, current_area,
-                snapshot, priorities.get(a.id, 1),
+                snapshot, priorities.get(a.id, a.default_priority),
                 constraints.fixed_blocks, weather_mode,
             ), a)
             for a in pool
@@ -164,7 +166,7 @@ def generate_route(
             for a in candidates:
                 s, t, w = _score(
                     a, current_time, current_location, current_area,
-                    snapshot, priorities.get(a.id, 1),
+                    snapshot, priorities.get(a.id, a.default_priority),
                     constraints.fixed_blocks, weather_mode,
                 )
                 if t + w + a.experience_time_min <= time_until_block_min:

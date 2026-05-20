@@ -160,6 +160,21 @@ def test_rain_mode_deprioritizes_outdoor(sample_attractions, operating_snapshot)
     assert rain_first == "pooh"
 
 
+def test_priority_zero_excluded_from_candidates(sample_attractions, operating_snapshot):
+    """priority=0 のアトラクションは候補プールから除外される。"""
+    result = generate_route(
+        snapshot=operating_snapshot,
+        attractions=sample_attractions,
+        constraints=make_constraints(),
+        priorities={"pooh": 0, "big_thunder": 5, "beauty_and_beast": 5},
+        must_visits=set(),
+    )
+    visited_ids = [s.id for s in result.steps if s.type == "attraction"]
+    # pooh は priority=0 で除外、big_thunder のみ訪問される
+    assert "pooh" not in visited_ids
+    assert "big_thunder" in visited_ids
+
+
 def test_no_dpa_for_reserved_must(sample_attractions, operating_snapshot):
     """must-visit に予約必須アトラクションを入れたが DPA ブロックがない場合、警告が出る。"""
     result = generate_route(

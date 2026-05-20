@@ -22,7 +22,7 @@ class Attraction(BaseModel):
     lng: float
     experience_time_min: int = Field(ge=0)
     queue_walk_min: int = Field(ge=0, default=0)
-    default_priority: int = Field(ge=1, le=5)
+    default_priority: int = Field(ge=0, le=5)
     dpa_eligible: bool = False
     requires_reservation: bool = False
     outdoor: bool = False
