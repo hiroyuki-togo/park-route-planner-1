@@ -2,20 +2,22 @@
 
 > 次セッションの Claude Code が状況を即時把握するための引き継ぎファイル。
 
-**最終更新**: 2026-05-17（Phase 4 完了後）
+**最終更新**: 2026-05-20（Phase 5 完了後）
 **来園日**: 2026-05-25（月）
-**残り日数**: 8 日
+**残り日数**: 5 日
 
 ---
 
 ## 1. 現在のステータス
 
-**Phase 1〜4 完了**。16 コミット、**テスト 37/37 PASS**。
-プラン §10 想定スケジュールに対して **3 日先行**。
+**Phase 1〜5 完了**。21 コミット、**テスト 45/45 PASS**。
+プラン §10 想定スケジュールに対して **依然 3 日先行**（Phase 5 を 5/19-20 想定 → 5/20 単日で完了）。
 
 ---
 
-## 2. 完了済みタスク（Task 1〜13）
+## 2. 完了済みタスク（Task 1〜19）
+
+### Phase 1〜4
 
 | Task | 内容 | コミット |
 |---|---|---|
@@ -37,44 +39,50 @@
 | 12 | `src/distance.py` 距離計算（パーク係数・雨天・パレード横断）4 テスト | `68e6358` |
 | 13 | `src/predictor.py` 待ち時間予測（時間帯×人気度、雨天屋外/屋内）7 テスト | `782c7de` |
 
+### Phase 5（ルート生成）— 5/20 完了
+
+| Task | 内容 | コミット |
+|---|---|---|
+| 14 | `tests/conftest.py` 共通 fixture + `src/router.py` 骨格 + 最小ケース 2 件 | `7b2fc69` |
+| 15 | must-visit 優先プール（Task 14 でカバー済、テストのみ追加） | `7cd76a8` |
+| 16 | DPA/meal/show/parade 固定ブロック取り込み + `_handle_fixed_block` | `3f09461` |
+| 17 | 食事ブロックで current_location 更新（Task 16 でカバー済、テストのみ追加） | `2c5e0fe` |
+| 18 | 雨天モード時の屋外優先度ダウン（Task 14 スコア式でカバー済、テスト追加） | `8fffe13` |
+| 19 | requires_reservation 未予約 + must の警告（`no_dpa_for_reserved`） | `8fffe13` |
+
 ---
 
 ## 3. 次にやること
 
-### 即時の次タスク：**Task 14（Phase 5：ルーター 共通フィクスチャと最小ケース）**
+### 即時の次タスク：**Task 20（Phase 6：Streamlit UI の骨組みと設定セクション）**
 
-[実装計画 Task 14](docs/superpowers/plans/2026-05-16-tdl-route-planner.md#task-14) を参照。
+[実装計画 Task 20](docs/superpowers/plans/2026-05-16-tdl-route-planner.md) — 2139 行〜。
 
-- `tests/conftest.py` に `sample_attractions` / `operating_snapshot` / `all_closed_snapshot` fixture を作る
-- `src/router.py` に `generate_route()` の骨格を実装
-- 最小ケース 2 件（全クローズ → 空 / 通常営業 → 高 priority 訪問）が PASS する
+- `app.py` を新規作成（骨組み + `load_attractions` / `load_restaurants` cached loaders）
+- 仕様書 §11.1 に基づき、UI セクションは「実装 → `streamlit run app.py` で目視確認 → コミット」のサイクル
+- **Phase 6 は TDD 適用外**（UI は手動テスト主体）
 
-### Phase 5 の全体像（Task 14〜19、6 タスク）
+### Phase 6 の全体像（Task 20〜? — プラン Task 21 以降の節を要参照）
 
-| Task | 内容 | プラン行 |
-|---|---|---|
-| 14 | 共通フィクスチャ + 最小ケース | 1398〜 |
-| 15 | must-visit 優先プール | 1674〜 |
-| 16 | DPA ブロック取り込み | 1728〜 |
-| 17 | 食事ブロックで current_location 更新 | 1972〜 |
-| 18 | 雨天モード時の屋外優先度ダウン | 2027〜 |
-| 19 | requires_reservation 未予約 + must の警告 | 2074〜 |
+Phase 6 は仕様書 §11.1 で「設定セクション → DPA セクション → 固定ブロックセクション → 生成・表示セクション → 共有 URL」の流れ。タスク区切りはプラン記載通り。
 
-Phase 5 完了後は Phase 6（Streamlit UI）。残り 8 日に対して 3 日先行しているので、慌てず TDD で 1 タスクずつ。
+### Phase 5 着手中の発見・lessons.md 追記
 
-### Phase 5 着手時の注意
+- lessons.md **#12「候補枯渇 vs idle until next event」**（Task 16 で気づいたバグの教訓）
+- lessons.md **#13「プランの設計判断は実装前に必ず東郷さんに確認」**（Task 16 の must 諦め分岐の指摘から）
 
-- **Task 14 の `src/router.py` は規模が大きい**（〜200 行）。プラン本文に全コードが書かれているので、写経 → テストで通すパターン
-- **Task 15-18 は「既にカバー済みのはず」と注記された expected あり**（プラン 1717 / 2016 / 2063 行）。Task 14 で `_candidate_pool` / `_handle_fixed_block` / weather factor を最初から含めて実装することで、追加テストが PASS する設計
-- **conftest.py の fixture が Phase 5 全タスクで共有**される。最初に丁寧に作ること。プラン 1405〜 にコード全文あり
-- **回帰ベースライン: 37/37 PASS**（Phase 4 完了時点）。Phase 5 で新規追加するテストは 15 件前後の見込み
+### Phase 5 で逸脱したプラン記述（次セッションが混乱しないよう明記）
 
-### 残り Phase スケジュール（プラン §10、3 日先行で更新）
+1. **`_candidate_pool` 枯渇でも `fixed_blocks` 残あり → 待機**: プラン未記載、自分で気づいて修正（Task 16）
+2. **must が固定ブロック前に収まらない場合の挙動**: プランは「諦めて警告」、実装は「固定ブロックを先に消化して後で再挑戦」（東郷さん指示・Task 16）
+3. **must 失敗時の警告は排他**: プランは time_conflict と no_dpa_for_reserved を additive、実装は「予約必須+DPAなし → no_dpa_for_reserved、それ以外 → time_conflict」の排他（自律判断・Task 19）
+4. **Task 14 で `DPA_WAIT_MIN` の unused import を除外**: Task 16 で必要になったタイミングで import 追加
+5. **Task 17 の食事ブロック時刻を 12:00 → 9:30 に変更**: fixture が 3 件しかなく原案では after_meal が成立しないため
 
-- 5/18 月 → Phase 5（ルート生成）着手・前半
-- 5/19 火 → Phase 5 仕上げ
-- 5/20 水 → Phase 6（Streamlit UI）着手
-- 5/21-22 木金 → Phase 6 仕上げ
+### 残り Phase スケジュール（プラン §10、3 日先行を維持）
+
+- 5/20 水 → ~~Phase 5 仕上げ~~ → **Phase 5 完了 + Phase 6 着手余地**（今日）
+- 5/21-22 木金 → Phase 6 中盤・仕上げ
 - 5/23 土 → Phase 7（デプロイ）+ リハーサル
 - 5/24 日 → 予備日（不具合対応・微調整）
 - 5/25 月 → 来園日
@@ -152,13 +160,14 @@ JSON エンドポイント：`https://www.tokyodisneyresort.jp/_/realtime/tdl_at
 ## 8. 次セッション開始時のおすすめプロンプト
 
 ```
-ディズニーランドのルート生成ツール、Phase 5 から続きをお願いします。
-PROGRESS.md と CLAUDE.md を読んで状況を把握してから、まず `.venv/bin/pytest -q` で 37/37 PASS を確認、それから Task 14（ルーター共通フィクスチャ + 最小ケース TDD）に着手してください。
+ディズニーランドのルート生成ツール、Phase 6 から続きをお願いします。
+PROGRESS.md と CLAUDE.md を読んで状況を把握してから、まず `.venv/bin/pytest -q` で 45/45 PASS を確認、それから Task 20（Streamlit UI の骨組み）に着手してください。Phase 6 は TDD 適用外で、UI は実装 → 目視確認 → コミット の流れ。
 ```
 
 ### 引き継ぎチェックリスト（次セッション冒頭で確認すること）
 
-- [ ] `git log --oneline -5` で最新コミットが `15e3cf2 docs: update PROGRESS after Phase 4 completion` であること
-- [ ] `git status` でクリーン
-- [ ] `.venv/bin/pytest -q` で **37 passed**
-- [ ] 上記が揃ったら CLAUDE.md / lessons.md を読み、Task 14 のプラン（1398〜）を Read してから TDD 着手
+- [ ] `git log --oneline -7` で最新コミットが `8fffe13 feat: warn when must-visit requires reservation but no DPA registered` であること
+- [ ] `git status` でクリーン（PROGRESS.md 更新のコミットを含むはず）
+- [ ] `.venv/bin/pytest -q` で **45 passed**
+- [ ] 上記が揃ったら CLAUDE.md / lessons.md を読み、Task 20 のプラン（2139〜）を Read してから着手
+- [ ] Streamlit を初回起動するため `.venv/bin/pip install -e .` で実行モジュール解決を確認（必要なら）
