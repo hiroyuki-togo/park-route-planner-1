@@ -100,3 +100,38 @@ def test_dpa_block_visits_reserved_attraction(sample_attractions, operating_snap
     assert dpa_steps[0].via == "dpa"
     assert dpa_steps[0].wait_min == 15
     assert "beauty_and_beast" not in result.unvisited_musts
+
+
+def test_meal_block_anchors_location(sample_attractions, operating_snapshot):
+    """食事ブロックに location があれば、ブロック終了後の現在地が更新される。
+
+    fixture の訪問可能アトラクションが 2 件のみのため、ブロックを朝早めに置いて
+    食事後にも訪問が残る構成にしている（プラン原案の 12:00 開始から変更）。
+    """
+    meal_location = (35.6325, 139.8800)
+    constraints = RouteConstraints(
+        start_time=datetime(2026, 5, 25, 9, 0),
+        close_time=datetime(2026, 5, 25, 21, 0),
+        entrance=(35.6329, 139.8804),
+        fixed_blocks=[
+            FixedBlock(
+                type="meal",
+                start=datetime(2026, 5, 25, 9, 30),
+                end=datetime(2026, 5, 25, 10, 30),
+                label="軽食",
+                location=meal_location,
+            ),
+        ],
+    )
+    result = generate_route(
+        snapshot=operating_snapshot,
+        attractions=sample_attractions,
+        constraints=constraints,
+        priorities={"pooh": 5, "big_thunder": 5, "beauty_and_beast": 5},
+        must_visits=set(),
+    )
+    meal_steps = [s for s in result.steps if s.type == "meal"]
+    assert len(meal_steps) == 1
+    # 食事後のアトラクション訪問が存在する（=ルートが継続している）
+    after_meal = [s for s in result.steps if s.type == "attraction" and s.arrive > meal_steps[0].ride_end]
+    assert len(after_meal) > 0
