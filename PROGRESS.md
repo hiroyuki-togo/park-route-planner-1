@@ -2,7 +2,7 @@
 
 > 次セッションの Claude Code が状況を即時把握するための引き継ぎファイル。
 
-**最終更新**: 2026-05-20（Phase 5 完了後）
+**最終更新**: 2026-05-20（Phase 6 完了後）
 **来園日**: 2026-05-25（月）
 **残り日数**: 5 日
 
@@ -10,8 +10,9 @@
 
 ## 1. 現在のステータス
 
-**Phase 1〜5 完了**。21 コミット、**テスト 45/45 PASS**。
-プラン §10 想定スケジュールに対して **依然 3 日先行**（Phase 5 を 5/19-20 想定 → 5/20 単日で完了）。
+**Phase 1〜6 完了**。25 コミット、**テスト 46/46 PASS**、Streamlit UI 動作確認済み。
+プラン §10 想定スケジュールに対して **5 日先行**（Phase 5+6 を 5/19〜5/22 想定 → 5/20 単日で完了）。
+残るは Phase 7（デプロイ）のみ。
 
 ---
 
@@ -50,39 +51,48 @@
 | 18 | 雨天モード時の屋外優先度ダウン（Task 14 スコア式でカバー済、テスト追加） | `8fffe13` |
 | 19 | requires_reservation 未予約 + must の警告（`no_dpa_for_reserved`） | `8fffe13` |
 
+### Phase 6（Streamlit UI）— 5/20 完了
+
+| Task | 内容 | コミット |
+|---|---|---|
+| 20 | `app.py` 骨組み（cached loaders、session_state init、雨天トグル） | `a1cdd32` |
+| 21+22 | アトラクション設定（priority slider + must-visit）+ 食事 / ショー / DPA 入力 | `09a2bfe` |
+| 23 | 取得・ルート生成・表示 + ダミー snapshot フォールバック + fetch エラーログ改善 | `c8135e2` |
+| — | priority=0 でアトラクションを候補から除外（東郷さん要望） | `5af96ac` |
+| 24+25 | localStorage 永続化（日付スコープ）+ CSV 出力 | `ce08b0d` |
+
 ---
 
 ## 3. 次にやること
 
-### 即時の次タスク：**Task 20（Phase 6：Streamlit UI の骨組みと設定セクション）**
+### 即時の次タスク：**Task 26〜28（Phase 7：デプロイ）**
 
-[実装計画 Task 20](docs/superpowers/plans/2026-05-16-tdl-route-planner.md) — 2139 行〜。
+[実装計画 Task 26](docs/superpowers/plans/2026-05-16-tdl-route-planner.md) — 2620 行〜。
 
-- `app.py` を新規作成（骨組み + `load_attractions` / `load_restaurants` cached loaders）
-- 仕様書 §11.1 に基づき、UI セクションは「実装 → `streamlit run app.py` で目視確認 → コミット」のサイクル
-- **Phase 6 は TDD 適用外**（UI は手動テスト主体）
+- Task 26: `requirements.txt` 生成 + `README.md`（個人学習目的・商用不可を明示）
+- Task 27: GitHub リポジトリ作成 + Streamlit Community Cloud デプロイ
+- Task 28: 統合テスト（実 API + UI 通しでの動作確認）
 
-### Phase 6 の全体像（Task 20〜? — プラン Task 21 以降の節を要参照）
+### Phase 6 で逸脱したプラン記述（次セッションが混乱しないよう明記）
 
-Phase 6 は仕様書 §11.1 で「設定セクション → DPA セクション → 固定ブロックセクション → 生成・表示セクション → 共有 URL」の流れ。タスク区切りはプラン記載通り。
+1. **fetch 失敗時の挙動を強化**: プラン未記載、`src/scraper.py` で例外を logger.warning で出すように改善（silent swallow を回避）
+2. **ダミー snapshot 生成スクリプト追加**: プラン未記載、ライブ API レート制限時のフォールバック素材として `scripts/generate_dummy_snapshot.py` を追加
+3. **priority=0 でアトラクション除外**: プラン未記載、東郷さん要望で実装。`Attraction.default_priority` の lower bound を 1→0 に緩和、`_candidate_pool` で除外
+4. **import 配置**: プランは関数内 import を多用、実装では PEP 8 に沿って冒頭に集約
 
-### Phase 5 着手中の発見・lessons.md 追記
+### Phase 6 動作確認時の発見
 
-- lessons.md **#12「候補枯渇 vs idle until next event」**（Task 16 で気づいたバグの教訓）
-- lessons.md **#13「プランの設計判断は実装前に必ず東郷さんに確認」**（Task 16 の must 諦め分岐の指摘から）
+- **ライブ API レート制限の再発**: curl で 30 秒タイムアウト確認。ダミー snapshot でフォールバック動作の確認は完了。来園日前（5/23-24）に実 API テストを再度実施する想定
+- **`requires_reservation=True` のアトラクションは「美女と野獣"魔法のものがたり"」1 件のみ**（マスタ確認結果）
 
-### Phase 5 で逸脱したプラン記述（次セッションが混乱しないよう明記）
+### 既知の改善余地（Phase 7 着手前に判断）
 
-1. **`_candidate_pool` 枯渇でも `fixed_blocks` 残あり → 待機**: プラン未記載、自分で気づいて修正（Task 16）
-2. **must が固定ブロック前に収まらない場合の挙動**: プランは「諦めて警告」、実装は「固定ブロックを先に消化して後で再挑戦」（東郷さん指示・Task 16）
-3. **must 失敗時の警告は排他**: プランは time_conflict と no_dpa_for_reserved を additive、実装は「予約必須+DPAなし → no_dpa_for_reserved、それ以外 → time_conflict」の排他（自律判断・Task 19）
-4. **Task 14 で `DPA_WAIT_MIN` の unused import を除外**: Task 16 で必要になったタイミングで import 追加
-5. **Task 17 の食事ブロック時刻を 12:00 → 9:30 に変更**: fixture が 3 件しかなく原案では after_meal が成立しないため
+- アトラクション設定セクションでの DPA 未登録警告が「該当行直下」に出る仕様 → 一覧上部にサマリ表示するほうが実用的。今回は (c) 不要 判断で見送り。来園日後にリファイン候補
 
-### 残り Phase スケジュール（プラン §10、3 日先行を維持）
+### 残り Phase スケジュール（プラン §10、5 日先行に拡大）
 
-- 5/20 水 → ~~Phase 5 仕上げ~~ → **Phase 5 完了 + Phase 6 着手余地**（今日）
-- 5/21-22 木金 → Phase 6 中盤・仕上げ
+- 5/20 水 → **Phase 5 + 6 完了**（今日、本来 5/19-22 想定）
+- 5/21-22 木金 → 予備日（バッファ拡大）
 - 5/23 土 → Phase 7（デプロイ）+ リハーサル
 - 5/24 日 → 予備日（不具合対応・微調整）
 - 5/25 月 → 来園日
@@ -160,14 +170,14 @@ JSON エンドポイント：`https://www.tokyodisneyresort.jp/_/realtime/tdl_at
 ## 8. 次セッション開始時のおすすめプロンプト
 
 ```
-ディズニーランドのルート生成ツール、Phase 6 から続きをお願いします。
-PROGRESS.md と CLAUDE.md を読んで状況を把握してから、まず `.venv/bin/pytest -q` で 45/45 PASS を確認、それから Task 20（Streamlit UI の骨組み）に着手してください。Phase 6 は TDD 適用外で、UI は実装 → 目視確認 → コミット の流れ。
+ディズニーランドのルート生成ツール、Phase 7（デプロイ）に進みます。
+PROGRESS.md と CLAUDE.md を読んで状況を把握してから、まず `.venv/bin/pytest -q` で 46/46 PASS を確認、それから Task 26（requirements.txt + README）に着手してください。来園日まで 5 日（5/25）、5 日先行している状態。
 ```
 
 ### 引き継ぎチェックリスト（次セッション冒頭で確認すること）
 
-- [ ] `git log --oneline -7` で最新コミットが `8fffe13 feat: warn when must-visit requires reservation but no DPA registered` であること
+- [ ] `git log --oneline -8` で Phase 6 関連 4 コミット（`a1cdd32 / 09a2bfe / c8135e2 / 5af96ac / ce08b0d`）が見えること
 - [ ] `git status` でクリーン（PROGRESS.md 更新のコミットを含むはず）
-- [ ] `.venv/bin/pytest -q` で **45 passed**
-- [ ] 上記が揃ったら CLAUDE.md / lessons.md を読み、Task 20 のプラン（2139〜）を Read してから着手
-- [ ] Streamlit を初回起動するため `.venv/bin/pip install -e .` で実行モジュール解決を確認（必要なら）
+- [ ] `.venv/bin/pytest -q` で **46 passed**
+- [ ] `.venv/bin/streamlit run app.py` で UI が起動しブラウザで表示されること（目視）
+- [ ] 上記が揃ったら CLAUDE.md / lessons.md を読み、Task 26 のプラン（2620〜）を Read してから着手
