@@ -205,13 +205,30 @@ def generate_route(
                 attraction_id=block.attraction_id,
             ))
 
-    # 終了処理：物理的に訪問できなかった must を警告に
+    # 終了処理：訪問できなかった must を、原因別に警告分け
+    # - 予約必須なのに DPA が登録されていない → no_dpa_for_reserved
+    # - それ以外（時間枠的に物理的に入らなかった等） → time_conflict
+    dpa_attraction_ids = {
+        b.attraction_id for b in constraints.fixed_blocks if b.type == "dpa"
+    }
     for must_id in sorted(must_remaining):
-        warnings.append(Warning(
-            kind="time_conflict",
-            message=f"時間内に訪問できず: {must_id}",
-            attraction_id=must_id,
-        ))
+        attraction = attractions_by_id.get(must_id)
+        if (
+            attraction is not None
+            and attraction.requires_reservation
+            and must_id not in dpa_attraction_ids
+        ):
+            warnings.append(Warning(
+                kind="no_dpa_for_reserved",
+                message=f"{attraction.name} は予約必須ですが DPA が登録されていません",
+                attraction_id=must_id,
+            ))
+        else:
+            warnings.append(Warning(
+                kind="time_conflict",
+                message=f"時間内に訪問できず: {must_id}",
+                attraction_id=must_id,
+            ))
 
     return RouteResult(
         steps=steps,

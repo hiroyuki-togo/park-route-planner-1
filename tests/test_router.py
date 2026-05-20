@@ -135,3 +135,40 @@ def test_meal_block_anchors_location(sample_attractions, operating_snapshot):
     # 食事後のアトラクション訪問が存在する（=ルートが継続している）
     after_meal = [s for s in result.steps if s.type == "attraction" and s.arrive > meal_steps[0].ride_end]
     assert len(after_meal) > 0
+
+
+def test_rain_mode_deprioritizes_outdoor(sample_attractions, operating_snapshot):
+    """雨天時、屋外（big_thunder）より屋内（pooh）が先に来やすくなる。"""
+    # 同じ priority で並べる
+    priorities = {"pooh": 5, "big_thunder": 5, "beauty_and_beast": 5}
+
+    normal = generate_route(
+        snapshot=operating_snapshot, attractions=sample_attractions,
+        constraints=make_constraints(), priorities=priorities, must_visits=set(),
+        weather_mode="normal",
+    )
+    rain = generate_route(
+        snapshot=operating_snapshot, attractions=sample_attractions,
+        constraints=make_constraints(), priorities=priorities, must_visits=set(),
+        weather_mode="rain",
+    )
+
+    normal_first = next(s.id for s in normal.steps if s.type == "attraction")
+    rain_first = next(s.id for s in rain.steps if s.type == "attraction")
+
+    # 雨天モード時に屋内（pooh）が優先される
+    assert rain_first == "pooh"
+
+
+def test_no_dpa_for_reserved_must(sample_attractions, operating_snapshot):
+    """must-visit に予約必須アトラクションを入れたが DPA ブロックがない場合、警告が出る。"""
+    result = generate_route(
+        snapshot=operating_snapshot,
+        attractions=sample_attractions,
+        constraints=make_constraints(),
+        priorities={"pooh": 5, "big_thunder": 5, "beauty_and_beast": 5},
+        must_visits={"beauty_and_beast"},
+    )
+    assert "beauty_and_beast" in result.unvisited_musts
+    kinds = [w.kind for w in result.warnings]
+    assert "no_dpa_for_reserved" in kinds
