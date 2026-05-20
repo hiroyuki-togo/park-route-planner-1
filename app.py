@@ -5,7 +5,9 @@ import json
 from datetime import date, datetime, time
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
+from streamlit_local_storage import LocalStorage
 
 from src.models import Attraction, FixedBlock, Restaurant
 from src.router import RouteConstraints, generate_route
@@ -54,6 +56,27 @@ def _init_session_state() -> None:
 
 def main() -> None:
     _init_session_state()
+
+    # ─── localStorage から本日分の設定を復元 ───────────
+    storage = LocalStorage()
+    today_key = f"tdl_settings_{date.today().isoformat()}"
+
+    if not st.session_state.get("_loaded"):
+        saved_raw = storage.getItem(today_key)
+        if saved_raw:
+            try:
+                saved = (
+                    json.loads(saved_raw) if isinstance(saved_raw, str) else saved_raw
+                )
+                for k, v in saved.items():
+                    if k == "must_visits":
+                        st.session_state[k] = set(v)
+                    else:
+                        st.session_state[k] = v
+            except Exception:
+                pass
+        st.session_state._loaded = True
+
     st.title("🎢 TDL Route Planner")
     st.caption(f"📅 {date.today().isoformat()}（設定は本日中だけ自動保存）")
 
@@ -347,6 +370,36 @@ def main() -> None:
 
         for w in result.warnings:
             st.warning(f"⚠️ {w.message}")
+
+        # ─── CSV 出力 ─────────────────────────────────
+        df = pd.DataFrame([
+            {
+                "時刻": s.arrive.strftime("%H:%M"),
+                "種別": s.type,
+                "名前": s.label or s.id or "",
+                "待ち分": int(s.wait_min) if s.wait_min else 0,
+                "移動分": int(s.travel_min) if s.travel_min else 0,
+            }
+            for s in result.steps
+        ])
+        csv = df.to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            "📥 CSV 出力",
+            data=csv,
+            file_name=f"route_{date.today().isoformat()}.csv",
+            mime="text/csv",
+        )
+
+    # ─── localStorage に本日分を保存（main() 末尾） ──────
+    to_save = {
+        "priorities": st.session_state.priorities,
+        "must_visits": list(st.session_state.must_visits),
+        "meal_blocks": st.session_state.meal_blocks,
+        "show_blocks": st.session_state.show_blocks,
+        "dpa_blocks": st.session_state.dpa_blocks,
+        "weather_mode": st.session_state.weather_mode,
+    }
+    storage.setItem(today_key, json.dumps(to_save, ensure_ascii=False))
 
 
 if __name__ == "__main__":
