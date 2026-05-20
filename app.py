@@ -79,6 +79,182 @@ def main() -> None:
         f"レストラン数：{len(restaurants)} 件"
     )
 
+    # ─── アトラクション設定 ──────────────────────────────
+    with st.expander("▼ アトラクション設定", expanded=False):
+        for a in sorted(attractions, key=lambda x: (x.area, x.name)):
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                must = st.checkbox(
+                    "必ず乗る",
+                    key=f"must_{a.id}",
+                    value=(a.id in st.session_state.must_visits),
+                )
+            with col2:
+                priority = st.slider(
+                    a.name,
+                    min_value=1, max_value=5,
+                    value=st.session_state.priorities.get(a.id, a.default_priority),
+                    key=f"prio_{a.id}",
+                )
+            st.session_state.priorities[a.id] = priority
+            if must:
+                st.session_state.must_visits.add(a.id)
+            else:
+                st.session_state.must_visits.discard(a.id)
+            if a.requires_reservation and must:
+                dpa_ids = {b["attraction_id"] for b in st.session_state.dpa_blocks}
+                if a.id not in dpa_ids:
+                    st.warning(
+                        f"⚠️ {a.name} は予約必須です。DPA を登録してください。"
+                    )
+
+    # ─── 食事ブロック ──────────────────────────────────
+    with st.expander("▼ 食事ブロック", expanded=False):
+        meal_count = st.number_input(
+            "食事の数", min_value=0, max_value=4,
+            value=len(st.session_state.meal_blocks) or 2,
+        )
+        new_meals: list[dict] = []
+        rest_map = {r.id: r for r in restaurants}
+        rest_options = ["（未選択）"] + [r.id for r in restaurants]
+        for i in range(int(meal_count)):
+            cols = st.columns([3, 2, 2])
+            existing = (
+                st.session_state.meal_blocks[i]
+                if i < len(st.session_state.meal_blocks) else None
+            )
+            with cols[0]:
+                rid = st.selectbox(
+                    f"店 #{i+1}",
+                    rest_options,
+                    format_func=lambda x: "（未選択）" if x == "（未選択）" else rest_map[x].name,
+                    index=(
+                        rest_options.index(existing["restaurant_id"])
+                        if existing and existing.get("restaurant_id") in rest_options else 0
+                    ),
+                    key=f"meal_rest_{i}",
+                )
+            with cols[1]:
+                start_t = st.time_input(
+                    f"開始 #{i+1}",
+                    value=(time.fromisoformat(existing["start"]) if existing else time(12, 0)),
+                    key=f"meal_start_{i}",
+                )
+            with cols[2]:
+                end_default = time(13, 30) if i == 0 else time(19, 0)
+                end_t = st.time_input(
+                    f"終了 #{i+1}",
+                    value=(time.fromisoformat(existing["end"]) if existing else end_default),
+                    key=f"meal_end_{i}",
+                )
+            if rid != "（未選択）":
+                r = rest_map[rid]
+                new_meals.append({
+                    "restaurant_id": rid,
+                    "label": r.name,
+                    "start": start_t.isoformat(timespec="minutes"),
+                    "end": end_t.isoformat(timespec="minutes"),
+                    "lat": r.lat,
+                    "lng": r.lng,
+                })
+        st.session_state.meal_blocks = new_meals
+
+    # ─── ショー / パレード ──────────────────────────────
+    with st.expander("▼ ショー・パレード", expanded=False):
+        show_count = st.number_input(
+            "ショー/パレードの数", min_value=0, max_value=5,
+            value=len(st.session_state.show_blocks),
+        )
+        new_shows: list[dict] = []
+        for i in range(int(show_count)):
+            cols = st.columns([3, 2, 2, 2])
+            existing = (
+                st.session_state.show_blocks[i]
+                if i < len(st.session_state.show_blocks) else None
+            )
+            with cols[0]:
+                label = st.text_input(
+                    f"ラベル #{i+1}",
+                    value=(existing["label"] if existing else "パレード"),
+                    key=f"show_label_{i}",
+                )
+            with cols[1]:
+                start_t = st.time_input(
+                    f"開始 #{i+1}",
+                    value=(time.fromisoformat(existing["start"]) if existing else time(13, 30)),
+                    key=f"show_start_{i}",
+                )
+            with cols[2]:
+                end_t = st.time_input(
+                    f"終了 #{i+1}",
+                    value=(time.fromisoformat(existing["end"]) if existing else time(14, 15)),
+                    key=f"show_end_{i}",
+                )
+            with cols[3]:
+                watch = st.checkbox(
+                    "鑑賞",
+                    value=(existing["watch"] if existing else False),
+                    key=f"show_watch_{i}",
+                )
+            new_shows.append({
+                "type": "parade" if "パレード" in label else "show",
+                "label": label,
+                "start": start_t.isoformat(timespec="minutes"),
+                "end": end_t.isoformat(timespec="minutes"),
+                "watch": watch,
+            })
+        st.session_state.show_blocks = new_shows
+
+    # ─── DPA 予約 ──────────────────────────────────────
+    with st.expander("▼ DPA 予約", expanded=False):
+        attraction_map = {a.id: a for a in attractions}
+        dpa_count = st.number_input(
+            "DPA 数", min_value=0, max_value=4,
+            value=len(st.session_state.dpa_blocks),
+        )
+        new_dpa: list[dict] = []
+        dpa_options = ["（未選択）"] + [a.id for a in attractions if a.dpa_eligible]
+        for i in range(int(dpa_count)):
+            cols = st.columns([3, 2, 2])
+            existing = (
+                st.session_state.dpa_blocks[i]
+                if i < len(st.session_state.dpa_blocks) else None
+            )
+            with cols[0]:
+                aid = st.selectbox(
+                    f"アトラクション #{i+1}",
+                    dpa_options,
+                    format_func=lambda x: "（未選択）" if x == "（未選択）" else attraction_map[x].name,
+                    index=(
+                        dpa_options.index(existing["attraction_id"])
+                        if existing and existing.get("attraction_id") in dpa_options else 0
+                    ),
+                    key=f"dpa_attr_{i}",
+                )
+            with cols[1]:
+                start_t = st.time_input(
+                    f"開始 #{i+1}",
+                    value=(time.fromisoformat(existing["start"]) if existing else time(10, 30)),
+                    key=f"dpa_start_{i}",
+                )
+            with cols[2]:
+                end_t = st.time_input(
+                    f"終了 #{i+1}",
+                    value=(time.fromisoformat(existing["end"]) if existing else time(11, 30)),
+                    key=f"dpa_end_{i}",
+                )
+            if aid != "（未選択）":
+                a = attraction_map[aid]
+                new_dpa.append({
+                    "attraction_id": aid,
+                    "label": f"DPA: {a.name}",
+                    "start": start_t.isoformat(timespec="minutes"),
+                    "end": end_t.isoformat(timespec="minutes"),
+                    "lat": a.lat,
+                    "lng": a.lng,
+                })
+        st.session_state.dpa_blocks = new_dpa
+
 
 if __name__ == "__main__":
     main()
