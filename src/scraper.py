@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import requests
 
 from src.models import WaitTimeEntry, WaitTimeSnapshot
+
+_logger = logging.getLogger(__name__)
 
 
 TDL_JSON_URL = "https://www.tokyodisneyresort.jp/_/realtime/tdl_attraction.json"
@@ -103,8 +106,13 @@ def fetch_realtime_wait_times(
         (snapshot_dir / f"{ts}.json").write_text(snapshot.model_dump_json())
         return snapshot
 
-    except Exception:
+    except Exception as e:
+        _logger.warning(
+            "fetch_realtime_wait_times failed: %s: %s",
+            type(e).__name__, e,
+        )
         latest = _latest_snapshot_file(snapshot_dir)
         if latest:
+            _logger.info("falling back to snapshot %s", latest.name)
             return _load_snapshot_from_file(latest)
         return None

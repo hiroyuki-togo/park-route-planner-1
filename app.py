@@ -7,7 +7,9 @@ from pathlib import Path
 
 import streamlit as st
 
-from src.models import Attraction, Restaurant
+from src.models import Attraction, FixedBlock, Restaurant
+from src.router import RouteConstraints, generate_route
+from src.scraper import fetch_realtime_wait_times
 
 
 st.set_page_config(page_title="TDL Route Planner", page_icon="🎢", layout="centered")
@@ -92,9 +94,10 @@ def main() -> None:
             with col2:
                 priority = st.slider(
                     a.name,
-                    min_value=1, max_value=5,
+                    min_value=0, max_value=5,
                     value=st.session_state.priorities.get(a.id, a.default_priority),
                     key=f"prio_{a.id}",
+                    help="0 = 乗らない（候補から除外）／1〜5 = 優先度",
                 )
             st.session_state.priorities[a.id] = priority
             if must:
@@ -254,6 +257,96 @@ def main() -> None:
                     "lng": a.lng,
                 })
         st.session_state.dpa_blocks = new_dpa
+
+    # ─── 取得 + ルート生成 ────────────────────────────
+    col_fetch, col_gen = st.columns(2)
+    with col_fetch:
+        if st.button("🔄 更新（待ち時間取得）"):
+            with st.spinner("取得中..."):
+                snap = fetch_realtime_wait_times()
+                if snap:
+                    st.session_state.last_snapshot = snap
+                    st.session_state.last_fetch_time = datetime.now()
+                    st.success(f"取得成功：{snap.timestamp.strftime('%H:%M')}")
+                else:
+                    st.error(
+                        "取得に失敗しました（API 応答なし & フォールバック先のスナップショットも見つかりません）。"
+                        "詳細は streamlit 起動ターミナルのログを確認してください。"
+                    )
+
+    with col_gen:
+        if st.button("⚡ ルート生成", type="primary"):
+            if st.session_state.last_snapshot is None:
+                st.warning("先に「更新」を押してください")
+            else:
+                today = date.today()
+                fixed_blocks: list[FixedBlock] = []
+                for m in st.session_state.meal_blocks:
+                    fixed_blocks.append(FixedBlock(
+                        type="meal",
+                        start=datetime.combine(today, time.fromisoformat(m["start"])),
+                        end=datetime.combine(today, time.fromisoformat(m["end"])),
+                        label=m["label"],
+                        restaurant_id=m["restaurant_id"],
+                        location=(m["lat"], m["lng"]),
+                    ))
+                for s in st.session_state.show_blocks:
+                    fixed_blocks.append(FixedBlock(
+                        type=s["type"],
+                        start=datetime.combine(today, time.fromisoformat(s["start"])),
+                        end=datetime.combine(today, time.fromisoformat(s["end"])),
+                        label=s["label"],
+                        watch=s["watch"],
+                    ))
+                for d in st.session_state.dpa_blocks:
+                    fixed_blocks.append(FixedBlock(
+                        type="dpa",
+                        start=datetime.combine(today, time.fromisoformat(d["start"])),
+                        end=datetime.combine(today, time.fromisoformat(d["end"])),
+                        label=d["label"],
+                        attraction_id=d["attraction_id"],
+                        location=(d["lat"], d["lng"]),
+                    ))
+                raw = json.loads(Path("data/attractions.json").read_text())
+                constraints = RouteConstraints(
+                    start_time=datetime.combine(today, time(9, 0)),
+                    close_time=datetime.combine(today, time(21, 0)),
+                    entrance=(raw["entrance"]["lat"], raw["entrance"]["lng"]),
+                    fixed_blocks=fixed_blocks,
+                )
+                result = generate_route(
+                    snapshot=st.session_state.last_snapshot,
+                    attractions=attractions,
+                    constraints=constraints,
+                    priorities=st.session_state.priorities,
+                    must_visits=set(st.session_state.must_visits),
+                    weather_mode=st.session_state.weather_mode,
+                )
+                st.session_state.current_route = result
+
+    # ─── 結果表示 ─────────────────────────────────────
+    result = st.session_state.current_route
+    if result:
+        st.subheader("▼ 推奨ルート")
+        for s in result.steps:
+            icon = {
+                "attraction": "🎢", "meal": "🍴", "show": "🎭",
+                "parade": "🎉", "dpa": "🎟",
+            }[s.type]
+            label = s.label or s.id or ""
+            line = f"{s.arrive.strftime('%H:%M')} {icon} {label}"
+            if s.wait_min:
+                line += f"（待ち {int(s.wait_min)} 分）"
+            st.write(line)
+
+        if result.unvisited_musts:
+            st.warning(
+                "⚠️ 未消化の must-visit:\n"
+                + "\n".join(f"- {m}" for m in result.unvisited_musts)
+            )
+
+        for w in result.warnings:
+            st.warning(f"⚠️ {w.message}")
 
 
 if __name__ == "__main__":
