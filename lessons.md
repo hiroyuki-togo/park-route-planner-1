@@ -133,3 +133,26 @@ TDL 公式 API がレート制限で応答しないとき、過去スナップ�
 当初の TDL 緯度経度範囲チェック（lng 139.85〜139.91）は omnibus の誤入力（139.891）を**通してしまった**。物理的範囲を厳密化する代わりに、「**エントランスからの距離が他の点と比べて突出していないか**」を加える方が頑健。点単体の範囲ではなく、点の集合としての分布で異常を見る視点。
 
 **学び**：範囲制約は false negative（誤検出見逃し）を許容するくらい緩く、代わりに **分布ベースの sanity check** を別途実装する。
+
+---
+
+### 20. CSS 修正が視覚的に効かない時は computed style で実態を確認する
+`st.time_input` の横に細い縦線が残る件で、`caret-color: transparent !important` を 12 セレクタ並べても消えなかった。深追いせず Chrome MCP で実 DOM を JS インスペクションした結果、対象 `<input>` の `getComputedStyle(inp).caretColor` は実際に `rgba(0,0,0,0)` で **CSS は意図通り効いていた**ことが判明。つまり見えていた線はキャレットそのものではなく、別の要素（baseweb 内部のフォーカスインジケータ or pseudo-element 等）が描画していた。
+
+セレクタを足し続けて 30 分浪費する前に、computed style 確認を 1 回挟めば「修正対象を間違えている」と即わかった。
+
+**学び**：CSS 修正が視覚的に効かない時は、修正をさらに重ねる前に **「対象要素の computed style を実際に確認する」** ステップを挟む。Chrome DevTools の Computed タブ、または JS で `getComputedStyle(el).property` を吐かせる。**シンボル（caret-color 等）が目的ではなく、見えている現象を作っているのが本当にそれか**を疑う。Streamlit / baseweb のようにラップが厚いフレームワークでは特に有効。
+
+---
+
+### 21. 多論点が同居した未コミット作業を分割するには `git apply --cached --unidiff-zero`
+1 ファイル（app.py）に 5 つの独立論点（theme 統合 + A2 + B5 + E3 + F1）の編集が同居した状態で、論点ごとにコミットを分けたいケースが発生。`git checkout HEAD -- app.py`（worktree を一旦戻して順次再適用するアプローチ）を試したが、Claude Code の auto-classifier が「ユーザの承認した変更を破棄する」として denial。
+
+採用した解決法：
+
+1. `git diff --unified=0 file > /tmp/all.diff` で context 0 の細かい hunk に分割（各論点が別 hunk になる粒度まで分ける）
+2. Python or awk で hunk を index 番号で選別 → 部分パッチを生成
+3. `git apply --cached --unidiff-zero patch.diff` で **index にだけ**当てる（worktree 不変、auto-classifier も通る）
+4. `git commit` → 残りの hunks は次の `git add file` で自然に staging される
+
+**学び**：**git の index と worktree を分離した操作**を覚えておくと、複数論点が 1 ファイルに同居しても worktree を壊さず commit を分割できる。Claude Code 環境では「破壊的に見える操作」（`git checkout`、`reset --hard` 等）が auto-classifier に弾かれるリスクがあるので、**index への部分パッチ → 残りを add** が最も安全なパターン。今回は worktree が完全に正しい最終状態のまま、3 コミットに綺麗に分割できた（`3f6efb8 / bc42e73 / ea41e0b`）。
