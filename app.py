@@ -12,6 +12,7 @@ from streamlit_local_storage import LocalStorage
 from src.models import Attraction, FixedBlock, Restaurant
 from src.router import RouteConstraints, generate_route
 from src.scraper import fetch_realtime_wait_times
+from src.simulator import build_opening_snapshot
 
 
 st.set_page_config(page_title="TDL Route Planner", page_icon="🎢", layout="centered")
@@ -78,7 +79,25 @@ def main() -> None:
         st.session_state._loaded = True
 
     st.title("🎢 TDL Route Planner")
-    st.caption(f"📅 {date.today().isoformat()}（設定は本日中だけ自動保存）")
+
+    mode = st.radio(
+        "モード",
+        ["🟢 当日モード（実 API）", "🔮 シミュレーションモード"],
+        horizontal=True,
+        key="mode",
+    )
+    is_sim_mode = mode == "🔮 シミュレーションモード"
+
+    if is_sim_mode:
+        sim_date = st.date_input("想定日", value=date(2026, 5, 25))
+        st.caption(
+            f"📅 {sim_date.isoformat()}（シミュレーション中 — 設定は保存されません）"
+        )
+    else:
+        sim_date = None
+        st.caption(f"📅 {date.today().isoformat()}（設定は本日中だけ自動保存）")
+
+    route_date = sim_date if is_sim_mode else date.today()
 
     attractions = load_attractions()
     restaurants = load_restaurants()
@@ -284,31 +303,48 @@ def main() -> None:
     # ─── 取得 + ルート生成 ────────────────────────────
     col_fetch, col_gen = st.columns(2)
     with col_fetch:
-        if st.button("🔄 更新（待ち時間取得）"):
-            with st.spinner("取得中..."):
-                snap = fetch_realtime_wait_times()
-                if snap:
+        fetch_label = (
+            "🔮 合成 snapshot 生成" if is_sim_mode else "🔄 更新（待ち時間取得）"
+        )
+        if st.button(fetch_label):
+            with st.spinner("生成中..." if is_sim_mode else "取得中..."):
+                if is_sim_mode:
+                    snap = build_opening_snapshot(attractions, sim_date)
                     st.session_state.last_snapshot = snap
                     st.session_state.last_fetch_time = datetime.now()
-                    st.success(f"取得成功：{snap.timestamp.strftime('%H:%M')}")
-                else:
-                    st.error(
-                        "取得に失敗しました（API 応答なし & フォールバック先のスナップショットも見つかりません）。"
-                        "詳細は streamlit 起動ターミナルのログを確認してください。"
+                    st.success(
+                        f"合成 snapshot 生成：{sim_date.isoformat()} 9:00 開園想定"
                     )
+                else:
+                    snap = fetch_realtime_wait_times()
+                    if snap:
+                        st.session_state.last_snapshot = snap
+                        st.session_state.last_fetch_time = datetime.now()
+                        st.success(f"取得成功：{snap.timestamp.strftime('%H:%M')}")
+                    else:
+                        st.error(
+                            "取得に失敗しました（API 応答なし & フォールバック先のスナップショットも見つかりません）。"
+                            "詳細は streamlit 起動ターミナルのログを確認してください。"
+                        )
 
     with col_gen:
-        if st.button("⚡ ルート生成", type="primary"):
+        gen_label = (
+            "🔮 シミュレーション" if is_sim_mode else "⚡ ルート生成"
+        )
+        if st.button(gen_label, type="primary"):
             if st.session_state.last_snapshot is None:
-                st.warning("先に「更新」を押してください")
+                st.warning(
+                    "先に「合成 snapshot 生成」を押してください"
+                    if is_sim_mode
+                    else "先に「更新」を押してください"
+                )
             else:
-                today = date.today()
                 fixed_blocks: list[FixedBlock] = []
                 for m in st.session_state.meal_blocks:
                     fixed_blocks.append(FixedBlock(
                         type="meal",
-                        start=datetime.combine(today, time.fromisoformat(m["start"])),
-                        end=datetime.combine(today, time.fromisoformat(m["end"])),
+                        start=datetime.combine(route_date, time.fromisoformat(m["start"])),
+                        end=datetime.combine(route_date, time.fromisoformat(m["end"])),
                         label=m["label"],
                         restaurant_id=m["restaurant_id"],
                         location=(m["lat"], m["lng"]),
@@ -316,24 +352,24 @@ def main() -> None:
                 for s in st.session_state.show_blocks:
                     fixed_blocks.append(FixedBlock(
                         type=s["type"],
-                        start=datetime.combine(today, time.fromisoformat(s["start"])),
-                        end=datetime.combine(today, time.fromisoformat(s["end"])),
+                        start=datetime.combine(route_date, time.fromisoformat(s["start"])),
+                        end=datetime.combine(route_date, time.fromisoformat(s["end"])),
                         label=s["label"],
                         watch=s["watch"],
                     ))
                 for d in st.session_state.dpa_blocks:
                     fixed_blocks.append(FixedBlock(
                         type="dpa",
-                        start=datetime.combine(today, time.fromisoformat(d["start"])),
-                        end=datetime.combine(today, time.fromisoformat(d["end"])),
+                        start=datetime.combine(route_date, time.fromisoformat(d["start"])),
+                        end=datetime.combine(route_date, time.fromisoformat(d["end"])),
                         label=d["label"],
                         attraction_id=d["attraction_id"],
                         location=(d["lat"], d["lng"]),
                     ))
                 raw = json.loads(Path("data/attractions.json").read_text())
                 constraints = RouteConstraints(
-                    start_time=datetime.combine(today, time(9, 0)),
-                    close_time=datetime.combine(today, time(21, 0)),
+                    start_time=datetime.combine(route_date, time(9, 0)),
+                    close_time=datetime.combine(route_date, time(21, 0)),
                     entrance=(raw["entrance"]["lat"], raw["entrance"]["lng"]),
                     fixed_blocks=fixed_blocks,
                 )
@@ -383,23 +419,25 @@ def main() -> None:
             for s in result.steps
         ])
         csv = df.to_csv(index=False).encode("utf-8-sig")
+        csv_prefix = "route_sim_" if is_sim_mode else "route_"
         st.download_button(
             "📥 CSV 出力",
             data=csv,
-            file_name=f"route_{date.today().isoformat()}.csv",
+            file_name=f"{csv_prefix}{route_date.isoformat()}.csv",
             mime="text/csv",
         )
 
-    # ─── localStorage に本日分を保存（main() 末尾） ──────
-    to_save = {
-        "priorities": st.session_state.priorities,
-        "must_visits": list(st.session_state.must_visits),
-        "meal_blocks": st.session_state.meal_blocks,
-        "show_blocks": st.session_state.show_blocks,
-        "dpa_blocks": st.session_state.dpa_blocks,
-        "weather_mode": st.session_state.weather_mode,
-    }
-    storage.setItem(today_key, json.dumps(to_save, ensure_ascii=False))
+    # ─── localStorage に本日分を保存（シミュ中はスキップ） ──
+    if not is_sim_mode:
+        to_save = {
+            "priorities": st.session_state.priorities,
+            "must_visits": list(st.session_state.must_visits),
+            "meal_blocks": st.session_state.meal_blocks,
+            "show_blocks": st.session_state.show_blocks,
+            "dpa_blocks": st.session_state.dpa_blocks,
+            "weather_mode": st.session_state.weather_mode,
+        }
+        storage.setItem(today_key, json.dumps(to_save, ensure_ascii=False))
 
 
 if __name__ == "__main__":
