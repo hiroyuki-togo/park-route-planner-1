@@ -53,6 +53,8 @@ _DEFAULT_SESSION_STATE: dict = {
     "current_route": None,
     # widget key suffix。リセットのたびに +1 して全 widget を新規扱いにする
     "reset_token": 0,
+    # 「⟳ いま」ボタン押下のたびに +1 して current_time widget を新規描画させる
+    "now_token": 0,
 }
 
 
@@ -153,11 +155,19 @@ def main() -> None:
     if not is_sim_mode:
         col_now, col_loc = st.columns(2)
         with col_now:
+            now_token = st.session_state.get("now_token", 0)
             current_time_val = st.time_input(
                 "現在時刻",
                 value=datetime.now().time().replace(second=0, microsecond=0),
-                key=f"current_time_{token}",
+                key=f"current_time_{token}_{now_token}",
             )
+            if st.button(
+                "⟳ いま",
+                key=f"btn_now_{token}",
+                help="現在時刻フィールドを今の時刻に戻す（時間が経って再生成する時に使う）",
+            ):
+                st.session_state.now_token = now_token + 1
+                st.rerun()
         with col_loc:
             loc_options = ["エントランス"] + [a.id for a in attractions]
             current_loc_id = st.selectbox(
@@ -216,6 +226,10 @@ def main() -> None:
                 st.session_state.must_visits.add(a.id)
             else:
                 st.session_state.must_visits.discard(a.id)
+            if must and priority == 0:
+                st.warning(
+                    f"⚠️ {a.name}：「必ず乗る」かつ優先度 0 は矛盾しています。必ず乗る扱いになります"
+                )
             if a.requires_reservation and must:
                 dpa_ids = {b["attraction_id"] for b in st.session_state.dpa_blocks}
                 if a.id not in dpa_ids:
@@ -469,6 +483,7 @@ def main() -> None:
         if st.button(
             "🧹 セッション",
             help="この画面の設定だけ消す。保存設定（次回起動時の復元）は残る",
+            key="btn_reset_sess",
         ):
             st.session_state._pending_reset = "session"
             st.rerun()
@@ -477,13 +492,13 @@ def main() -> None:
         if st.button(
             "🗑 完全",
             help="保存設定（localStorage）も含めて全削除",
+            key="btn_reset_full",
         ):
             st.session_state._pending_reset = "full"
             st.rerun()
 
     # ─── リセット確認 ──────────────────────────────────
     pending = st.session_state.get("_pending_reset")
-            key="btn_reset_sess",
     if pending:
         msg = (
             "セッション中の設定だけ消します（保存設定は残るので、次回起動時に復元されます）"
@@ -492,7 +507,6 @@ def main() -> None:
         )
         st.warning(f"⚠️ {msg}。本当によろしいですか？")
         col_yes, col_no = st.columns(2)
-            key="btn_reset_full",
         with col_yes:
             if st.button("はい、リセット", key="btn_confirm_reset"):
                 _reset_settings(
@@ -521,9 +535,13 @@ def main() -> None:
             )
 
         if result.unvisited_musts:
+            unvisited_names = [
+                attraction_map[m].name if m in attraction_map else m
+                for m in result.unvisited_musts
+            ]
             st.warning(
                 "⚠️ 未消化の must-visit:\n"
-                + "\n".join(f"- {m}" for m in result.unvisited_musts)
+                + "\n".join(f"- {n}" for n in unvisited_names)
             )
 
         for w in result.warnings:
