@@ -4,8 +4,10 @@ OPEN_TIME = "09:00"
 CLOSE_TIME = "21:00"
 
 WALKING_SPEED_M_PER_MIN = 67  # 4 km/h
-PARK_FACTOR_NORMAL = 1.4
-PARK_FACTOR_RAIN = 1.7
+# 実効速度 = WALKING_SPEED / PARK_FACTOR。6 人 + 2 歳児 + ベビーカー想定で
+# normal は 2.0 km/h まで落とす。雨天はさらに減速 (+0.3)。
+PARK_FACTOR_NORMAL = 2.0
+PARK_FACTOR_RAIN = 2.3
 
 AREAS = [
     "ワールドバザール",
