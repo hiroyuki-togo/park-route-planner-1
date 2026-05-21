@@ -41,6 +41,7 @@ def load_restaurants() -> list[Restaurant]:
 _DEFAULT_SESSION_STATE: dict = {
     "priorities": {},
     "must_visits": set(),
+    "visited_attractions": set(),
     "meal_blocks": [],
     "show_blocks": [],
     "dpa_blocks": [],
@@ -93,7 +94,7 @@ def main() -> None:
                     json.loads(saved_raw) if isinstance(saved_raw, str) else saved_raw
                 )
                 for k, v in saved.items():
-                    if k == "must_visits":
+                    if k in ("must_visits", "visited_attractions"):
                         st.session_state[k] = set(v)
                     else:
                         st.session_state[k] = v
@@ -145,6 +146,30 @@ def main() -> None:
         "rain" if st.session_state.get(weather_key) else "normal"
     )
 
+    # ─── 当日モード専用：現在時刻 + 現在位置 ────────────
+    attraction_map = {a.id: a for a in attractions}
+    if not is_sim_mode:
+        col_now, col_loc = st.columns(2)
+        with col_now:
+            current_time_val = st.time_input(
+                "現在時刻",
+                value=datetime.now().time().replace(second=0, microsecond=0),
+                key=f"current_time_{token}",
+            )
+        with col_loc:
+            loc_options = ["エントランス"] + [a.id for a in attractions]
+            current_loc_id = st.selectbox(
+                "現在位置",
+                loc_options,
+                format_func=lambda x: (
+                    "エントランス" if x == "エントランス" else attraction_map[x].name
+                ),
+                key=f"current_loc_{token}",
+            )
+    else:
+        current_time_val = time(9, 0)
+        current_loc_id = "エントランス"
+
     st.write(
         f"アトラクション数：{len(attractions)} 件 / "
         f"レストラン数：{len(restaurants)} 件"
@@ -153,14 +178,30 @@ def main() -> None:
     # ─── アトラクション設定 ──────────────────────────────
     with st.expander("▼ アトラクション設定", expanded=False):
         for a in sorted(attractions, key=lambda x: (x.area, x.name)):
-            col1, col2 = st.columns([1, 3])
-            with col1:
+            if is_sim_mode:
+                col_must, col_prio = st.columns([1, 3])
+                col_done = None
+            else:
+                col_must, col_done, col_prio = st.columns([1, 1, 3])
+            with col_must:
                 must = st.checkbox(
                     "必ず乗る",
                     key=f"must_{a.id}_{token}",
                     value=(a.id in st.session_state.must_visits),
                 )
-            with col2:
+            if col_done is not None:
+                with col_done:
+                    done = st.checkbox(
+                        "乗った",
+                        key=f"done_{a.id}_{token}",
+                        value=(a.id in st.session_state.visited_attractions),
+                        help="チェックすると候補から除外され、再生成時に重複しない",
+                    )
+                if done:
+                    st.session_state.visited_attractions.add(a.id)
+                else:
+                    st.session_state.visited_attractions.discard(a.id)
+            with col_prio:
                 priority = st.slider(
                     a.name,
                     min_value=0, max_value=5,
@@ -281,7 +322,6 @@ def main() -> None:
 
     # ─── DPA 予約 ──────────────────────────────────────
     with st.expander("▼ DPA 予約", expanded=False):
-        attraction_map = {a.id: a for a in attractions}
         dpa_count = st.number_input(
             "DPA 数", min_value=0, max_value=4,
             value=len(st.session_state.dpa_blocks),
@@ -397,10 +437,16 @@ def main() -> None:
                         location=(d["lat"], d["lng"]),
                     ))
                 raw = json.loads(Path("data/attractions.json").read_text())
+                entrance_coords = (raw["entrance"]["lat"], raw["entrance"]["lng"])
+                if current_loc_id == "エントランス":
+                    start_location = entrance_coords
+                else:
+                    a = attraction_map[current_loc_id]
+                    start_location = (a.lat, a.lng)
                 constraints = RouteConstraints(
-                    start_time=datetime.combine(route_date, time(9, 0)),
+                    start_time=datetime.combine(route_date, current_time_val),
                     close_time=datetime.combine(route_date, time(21, 0)),
-                    entrance=(raw["entrance"]["lat"], raw["entrance"]["lng"]),
+                    entrance=start_location,
                     fixed_blocks=fixed_blocks,
                 )
                 result = generate_route(
@@ -409,6 +455,10 @@ def main() -> None:
                     constraints=constraints,
                     priorities=st.session_state.priorities,
                     must_visits=set(st.session_state.must_visits),
+                    visited=(
+                        set(st.session_state.visited_attractions)
+                        if not is_sim_mode else None
+                    ),
                     weather_mode=st.session_state.weather_mode,
                 )
                 st.session_state.current_route = result
@@ -503,6 +553,7 @@ def main() -> None:
         to_save = {
             "priorities": st.session_state.priorities,
             "must_visits": list(st.session_state.must_visits),
+            "visited_attractions": list(st.session_state.visited_attractions),
             "meal_blocks": st.session_state.meal_blocks,
             "show_blocks": st.session_state.show_blocks,
             "dpa_blocks": st.session_state.dpa_blocks,
