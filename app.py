@@ -13,9 +13,11 @@ from src.models import Attraction, FixedBlock, Restaurant
 from src.router import RouteConstraints, generate_route
 from src.scraper import fetch_realtime_wait_times
 from src.simulator import build_opening_snapshot
+from theme import inject_theme, render_route_step
 
 
 st.set_page_config(page_title="TDL Route Planner", page_icon="🎢", layout="centered")
+inject_theme()
 
 
 @st.cache_data
@@ -376,7 +378,7 @@ def main() -> None:
         fetch_label = (
             "🔮 合成 snapshot 生成" if is_sim_mode else "🔄 更新（待ち時間取得）"
         )
-        if st.button(fetch_label):
+        if st.button(fetch_label, key="btn_fetch"):
             with st.spinner("生成中..." if is_sim_mode else "取得中..."):
                 if is_sim_mode:
                     snap = build_opening_snapshot(attractions, sim_date)
@@ -401,7 +403,7 @@ def main() -> None:
         gen_label = (
             "🔮 シミュレーション" if is_sim_mode else "⚡ ルート生成"
         )
-        if st.button(gen_label, type="primary"):
+        if st.button(gen_label, type="primary", key="btn_gen"):
             if st.session_state.last_snapshot is None:
                 st.warning(
                     "先に「合成 snapshot 生成」を押してください"
@@ -481,6 +483,7 @@ def main() -> None:
 
     # ─── リセット確認 ──────────────────────────────────
     pending = st.session_state.get("_pending_reset")
+            key="btn_reset_sess",
     if pending:
         msg = (
             "セッション中の設定だけ消します（保存設定は残るので、次回起動時に復元されます）"
@@ -489,8 +492,9 @@ def main() -> None:
         )
         st.warning(f"⚠️ {msg}。本当によろしいですか？")
         col_yes, col_no = st.columns(2)
+            key="btn_reset_full",
         with col_yes:
-            if st.button("はい、リセット", type="primary", key="reset_yes"):
+            if st.button("はい、リセット", key="btn_confirm_reset"):
                 _reset_settings(
                     clear_local=(pending == "full"),
                     storage=storage,
@@ -508,16 +512,13 @@ def main() -> None:
     result = st.session_state.current_route
     if result:
         st.subheader("▼ 推奨ルート")
-        for s in result.steps:
-            icon = {
-                "attraction": "🎢", "meal": "🍴", "show": "🎭",
-                "parade": "🎉", "dpa": "🎟",
-            }[s.type]
-            label = s.label or s.id or ""
-            line = f"{s.arrive.strftime('%H:%M')} {icon} {label}"
-            if s.wait_min:
-                line += f"（待ち {int(s.wait_min)} 分）"
-            st.write(line)
+        id_to_area = {a.id: a.area for a in attractions}
+        for i, s in enumerate(result.steps):
+            render_route_step(
+                s,
+                area=id_to_area.get(s.id) if s.id else None,
+                travel_from_prev=s.travel_min if i > 0 else None,
+            )
 
         if result.unvisited_musts:
             st.warning(

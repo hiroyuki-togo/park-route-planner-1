@@ -1,0 +1,11 @@
+[theme]
+# TDL Route Planner - Theme Park Warm (v2.1)
+# This overrides Streamlit's default primaryColor (#FF4B4B / red),
+# which controls slider tracks, radio dots, checkbox fills, and other
+# dynamic elements that CSS can't easily target via attribute selectors.
+
+primaryColor = "#D85A30"
+backgroundColor = "#FFF8F0"
+secondaryBackgroundColor = "#FFF1E5"
+textColor = "#3D2817"
+font = "sans serif"
