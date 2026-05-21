@@ -48,6 +48,8 @@ _DEFAULT_SESSION_STATE: dict = {
     "last_snapshot": None,
     "last_fetch_time": None,
     "current_route": None,
+    # widget key suffix。リセットのたびに +1 して全 widget を新規扱いにする
+    "reset_token": 0,
 }
 
 
@@ -60,34 +62,20 @@ def _init_session_state() -> None:
             )
 
 
-_WIDGET_KEY_PREFIXES: tuple[str, ...] = (
-    "prio_", "must_", "meal_", "show_", "dpa_",
-)
-
-
-def _reset_widget_keys() -> None:
-    """各 expander 内の widget key を session_state から消す。
-
-    widget key を残したまま session_state.priorities などを空にすると、
-    次の rerun で widget が記憶している前回値で session_state を再上書きしてしまう。
-    """
-    keys = [
-        k for k in list(st.session_state.keys())
-        if k.startswith(_WIDGET_KEY_PREFIXES) or k == "weather_toggle"
-    ]
-    for k in keys:
-        del st.session_state[k]
-
-
 def _reset_settings(*, clear_local: bool, storage: LocalStorage, today_key: str) -> None:
-    """設定リセット。clear_local=True なら localStorage の保存値も消す。"""
+    """設定リセット。clear_local=True なら localStorage の保存値も消す。
+
+    widget の内部 state をクリアするため、reset_token をインクリメントして
+    各 widget の key 末尾 suffix を変える（= 別 widget として再描画させる）。
+    """
     if clear_local:
         storage.deleteItem(today_key)
+    new_token = st.session_state.get("reset_token", 0) + 1
     for k, v in _DEFAULT_SESSION_STATE.items():
         st.session_state[k] = (
             v.copy() if isinstance(v, (set, list, dict)) else v
         )
-    _reset_widget_keys()
+    st.session_state.reset_token = new_token
 
 
 def main() -> None:
@@ -114,6 +102,9 @@ def main() -> None:
         st.session_state._loaded = True
 
     st.title("🎢 TDL Route Planner")
+
+    # widget key suffix。リセット時にインクリメントされ、全 widget が新規描画される
+    token = st.session_state.get("reset_token", 0)
 
     mode = st.radio(
         "モード",
@@ -144,13 +135,14 @@ def main() -> None:
         )
         return
 
+    weather_key = f"weather_toggle_{token}"
     st.checkbox(
         "☂️ 雨天モード",
-        key="weather_toggle",
+        key=weather_key,
         value=(st.session_state.weather_mode == "rain"),
     )
     st.session_state.weather_mode = (
-        "rain" if st.session_state.get("weather_toggle") else "normal"
+        "rain" if st.session_state.get(weather_key) else "normal"
     )
 
     st.write(
@@ -165,7 +157,7 @@ def main() -> None:
             with col1:
                 must = st.checkbox(
                     "必ず乗る",
-                    key=f"must_{a.id}",
+                    key=f"must_{a.id}_{token}",
                     value=(a.id in st.session_state.must_visits),
                 )
             with col2:
@@ -173,7 +165,7 @@ def main() -> None:
                     a.name,
                     min_value=0, max_value=5,
                     value=st.session_state.priorities.get(a.id, a.default_priority),
-                    key=f"prio_{a.id}",
+                    key=f"prio_{a.id}_{token}",
                     help="0 = 乗らない（候補から除外）／1〜5 = 優先度",
                 )
             st.session_state.priorities[a.id] = priority
@@ -193,6 +185,7 @@ def main() -> None:
         meal_count = st.number_input(
             "食事の数", min_value=0, max_value=4,
             value=len(st.session_state.meal_blocks) or 2,
+            key=f"meal_count_{token}",
         )
         new_meals: list[dict] = []
         rest_map = {r.id: r for r in restaurants}
@@ -212,20 +205,20 @@ def main() -> None:
                         rest_options.index(existing["restaurant_id"])
                         if existing and existing.get("restaurant_id") in rest_options else 0
                     ),
-                    key=f"meal_rest_{i}",
+                    key=f"meal_rest_{i}_{token}",
                 )
             with cols[1]:
                 start_t = st.time_input(
                     f"開始 #{i+1}",
                     value=(time.fromisoformat(existing["start"]) if existing else time(12, 0)),
-                    key=f"meal_start_{i}",
+                    key=f"meal_start_{i}_{token}",
                 )
             with cols[2]:
                 end_default = time(13, 30) if i == 0 else time(19, 0)
                 end_t = st.time_input(
                     f"終了 #{i+1}",
                     value=(time.fromisoformat(existing["end"]) if existing else end_default),
-                    key=f"meal_end_{i}",
+                    key=f"meal_end_{i}_{token}",
                 )
             if rid != "（未選択）":
                 r = rest_map[rid]
@@ -244,6 +237,7 @@ def main() -> None:
         show_count = st.number_input(
             "ショー/パレードの数", min_value=0, max_value=5,
             value=len(st.session_state.show_blocks),
+            key=f"show_count_{token}",
         )
         new_shows: list[dict] = []
         for i in range(int(show_count)):
@@ -256,25 +250,25 @@ def main() -> None:
                 label = st.text_input(
                     f"ラベル #{i+1}",
                     value=(existing["label"] if existing else "パレード"),
-                    key=f"show_label_{i}",
+                    key=f"show_label_{i}_{token}",
                 )
             with cols[1]:
                 start_t = st.time_input(
                     f"開始 #{i+1}",
                     value=(time.fromisoformat(existing["start"]) if existing else time(13, 30)),
-                    key=f"show_start_{i}",
+                    key=f"show_start_{i}_{token}",
                 )
             with cols[2]:
                 end_t = st.time_input(
                     f"終了 #{i+1}",
                     value=(time.fromisoformat(existing["end"]) if existing else time(14, 15)),
-                    key=f"show_end_{i}",
+                    key=f"show_end_{i}_{token}",
                 )
             with cols[3]:
                 watch = st.checkbox(
                     "鑑賞",
                     value=(existing["watch"] if existing else False),
-                    key=f"show_watch_{i}",
+                    key=f"show_watch_{i}_{token}",
                 )
             new_shows.append({
                 "type": "parade" if "パレード" in label else "show",
@@ -291,6 +285,7 @@ def main() -> None:
         dpa_count = st.number_input(
             "DPA 数", min_value=0, max_value=4,
             value=len(st.session_state.dpa_blocks),
+            key=f"dpa_count_{token}",
         )
         new_dpa: list[dict] = []
         dpa_options = ["（未選択）"] + [a.id for a in attractions if a.dpa_eligible]
@@ -309,19 +304,19 @@ def main() -> None:
                         dpa_options.index(existing["attraction_id"])
                         if existing and existing.get("attraction_id") in dpa_options else 0
                     ),
-                    key=f"dpa_attr_{i}",
+                    key=f"dpa_attr_{i}_{token}",
                 )
             with cols[1]:
                 start_t = st.time_input(
                     f"開始 #{i+1}",
                     value=(time.fromisoformat(existing["start"]) if existing else time(10, 30)),
-                    key=f"dpa_start_{i}",
+                    key=f"dpa_start_{i}_{token}",
                 )
             with cols[2]:
                 end_t = st.time_input(
                     f"終了 #{i+1}",
                     value=(time.fromisoformat(existing["end"]) if existing else time(11, 30)),
-                    key=f"dpa_end_{i}",
+                    key=f"dpa_end_{i}_{token}",
                 )
             if aid != "（未選択）":
                 a = attraction_map[aid]
