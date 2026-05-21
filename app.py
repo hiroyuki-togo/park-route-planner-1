@@ -38,21 +38,56 @@ def load_restaurants() -> list[Restaurant]:
     ]
 
 
+_DEFAULT_SESSION_STATE: dict = {
+    "priorities": {},
+    "must_visits": set(),
+    "meal_blocks": [],
+    "show_blocks": [],
+    "dpa_blocks": [],
+    "weather_mode": "normal",
+    "last_snapshot": None,
+    "last_fetch_time": None,
+    "current_route": None,
+}
+
+
 def _init_session_state() -> None:
-    defaults = {
-        "priorities": {},
-        "must_visits": set(),
-        "meal_blocks": [],
-        "show_blocks": [],
-        "dpa_blocks": [],
-        "weather_mode": "normal",
-        "last_snapshot": None,
-        "last_fetch_time": None,
-        "current_route": None,
-    }
-    for k, v in defaults.items():
+    for k, v in _DEFAULT_SESSION_STATE.items():
         if k not in st.session_state:
-            st.session_state[k] = v
+            # set / list / dict は参照共有を避けるためコピー
+            st.session_state[k] = (
+                v.copy() if isinstance(v, (set, list, dict)) else v
+            )
+
+
+_WIDGET_KEY_PREFIXES: tuple[str, ...] = (
+    "prio_", "must_", "meal_", "show_", "dpa_",
+)
+
+
+def _reset_widget_keys() -> None:
+    """各 expander 内の widget key を session_state から消す。
+
+    widget key を残したまま session_state.priorities などを空にすると、
+    次の rerun で widget が記憶している前回値で session_state を再上書きしてしまう。
+    """
+    keys = [
+        k for k in list(st.session_state.keys())
+        if k.startswith(_WIDGET_KEY_PREFIXES) or k == "weather_toggle"
+    ]
+    for k in keys:
+        del st.session_state[k]
+
+
+def _reset_settings(*, clear_local: bool, storage: LocalStorage, today_key: str) -> None:
+    """設定リセット。clear_local=True なら localStorage の保存値も消す。"""
+    if clear_local:
+        storage.deleteItem(today_key)
+    for k, v in _DEFAULT_SESSION_STATE.items():
+        st.session_state[k] = (
+            v.copy() if isinstance(v, (set, list, dict)) else v
+        )
+    _reset_widget_keys()
 
 
 def main() -> None:
@@ -300,8 +335,8 @@ def main() -> None:
                 })
         st.session_state.dpa_blocks = new_dpa
 
-    # ─── 取得 + ルート生成 ────────────────────────────
-    col_fetch, col_gen = st.columns(2)
+    # ─── 取得 + ルート生成 + リセット ───────────────────
+    col_fetch, col_gen, col_reset_sess, col_reset_full = st.columns([3, 3, 2, 2])
     with col_fetch:
         fetch_label = (
             "🔮 合成 snapshot 生成" if is_sim_mode else "🔄 更新（待ち時間取得）"
@@ -382,6 +417,47 @@ def main() -> None:
                     weather_mode=st.session_state.weather_mode,
                 )
                 st.session_state.current_route = result
+
+    with col_reset_sess:
+        if st.button(
+            "🧹 セッション",
+            help="この画面の設定だけ消す。保存設定（次回起動時の復元）は残る",
+        ):
+            st.session_state._pending_reset = "session"
+            st.rerun()
+
+    with col_reset_full:
+        if st.button(
+            "🗑 完全",
+            help="保存設定（localStorage）も含めて全削除",
+        ):
+            st.session_state._pending_reset = "full"
+            st.rerun()
+
+    # ─── リセット確認 ──────────────────────────────────
+    pending = st.session_state.get("_pending_reset")
+    if pending:
+        msg = (
+            "セッション中の設定だけ消します（保存設定は残るので、次回起動時に復元されます）"
+            if pending == "session"
+            else "保存設定（localStorage）も含めて全削除します。元に戻せません"
+        )
+        st.warning(f"⚠️ {msg}。本当によろしいですか？")
+        col_yes, col_no = st.columns(2)
+        with col_yes:
+            if st.button("はい、リセット", type="primary", key="reset_yes"):
+                _reset_settings(
+                    clear_local=(pending == "full"),
+                    storage=storage,
+                    today_key=today_key,
+                )
+                st.session_state._pending_reset = None
+                st.toast("リセット完了")
+                st.rerun()
+        with col_no:
+            if st.button("キャンセル", key="reset_no"):
+                st.session_state._pending_reset = None
+                st.rerun()
 
     # ─── 結果表示 ─────────────────────────────────────
     result = st.session_state.current_route
