@@ -449,20 +449,24 @@ def render_route_step(
         duration_min = int((step.ride_end - step.ride_start).total_seconds() / 60)
     except Exception:
         duration_min = 0
+    end_str = step.ride_end.strftime("%H:%M") if getattr(step, "ride_end", None) else ""
 
-    # Wait / duration display
-    wait_html = ""
+    # Wait / duration / end-time display
     wait_min = getattr(step, "wait_min", 0) or 0
-    if wait_min > 0:
-        wait_html = (
-            f'<span class="route-card-wait">'
-            f'待ち <strong>{int(wait_min)}</strong>分'
-            f'</span>'
-        )
-    elif duration_min > 0:
-        wait_html = (
-            f'<span class="route-card-wait">体験 {duration_min}分</span>'
-        )
+    parts: list[str] = []
+    if step.type in ("attraction", "dpa"):
+        if wait_min > 0:
+            parts.append(f'待ち <strong>{int(wait_min)}</strong>分')
+        if duration_min > 0:
+            parts.append(f'体験 {duration_min}分')
+    elif step.type in ("meal", "show", "parade") and duration_min > 0:
+        parts.append(f'{duration_min}分')
+    if end_str:
+        parts.append(f'→ {end_str} 終了')
+
+    wait_html = (
+        f'<span class="route-card-wait">{" ・ ".join(parts)}</span>' if parts else ""
+    )
 
     # DPA badge (only when the step is NOT itself a dpa-type but was experienced via DPA)
     dpa_badge_html = ""
