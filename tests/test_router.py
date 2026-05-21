@@ -220,6 +220,63 @@ def test_visited_clears_must_visit(sample_attractions, operating_snapshot):
     assert "big_thunder" not in result.unvisited_musts
 
 
+def test_past_fixed_block_skipped(sample_attractions, operating_snapshot):
+    """start_time より完全に過去のブロックは消化対象にならない。"""
+    constraints = RouteConstraints(
+        start_time=datetime(2026, 5, 25, 13, 0),
+        close_time=datetime(2026, 5, 25, 21, 0),
+        entrance=(35.6329, 139.8804),
+        fixed_blocks=[
+            FixedBlock(
+                type="meal",
+                start=datetime(2026, 5, 25, 10, 0),
+                end=datetime(2026, 5, 25, 11, 0),
+                label="朝食",
+            ),
+        ],
+    )
+    result = generate_route(
+        snapshot=operating_snapshot,
+        attractions=sample_attractions,
+        constraints=constraints,
+        priorities={"pooh": 5, "big_thunder": 5, "beauty_and_beast": 5},
+        must_visits=set(),
+    )
+    meal_steps = [s for s in result.steps if s.type == "meal"]
+    assert meal_steps == []
+    # かつ全 step の arrive が start_time 以降
+    for s in result.steps:
+        assert s.arrive >= constraints.start_time
+
+
+def test_ongoing_block_arrive_clamped_to_current_time(sample_attractions, operating_snapshot):
+    """start_time が block 内部にある場合、arrive は start_time 以降に丸められる。"""
+    constraints = RouteConstraints(
+        start_time=datetime(2026, 5, 25, 13, 0),
+        close_time=datetime(2026, 5, 25, 21, 0),
+        entrance=(35.6329, 139.8804),
+        fixed_blocks=[
+            FixedBlock(
+                type="meal",
+                start=datetime(2026, 5, 25, 12, 0),
+                end=datetime(2026, 5, 25, 13, 30),
+                label="昼食",
+            ),
+        ],
+    )
+    result = generate_route(
+        snapshot=operating_snapshot,
+        attractions=sample_attractions,
+        constraints=constraints,
+        priorities={"pooh": 5, "big_thunder": 5, "beauty_and_beast": 5},
+        must_visits=set(),
+    )
+    meal_steps = [s for s in result.steps if s.type == "meal"]
+    assert len(meal_steps) == 1
+    assert meal_steps[0].arrive == constraints.start_time  # 13:00 に丸められている
+    assert meal_steps[0].ride_end == datetime(2026, 5, 25, 13, 30)
+
+
 def test_route_starts_from_current_location(sample_attractions, operating_snapshot):
     """constraints.entrance をアトラクションの座標にすると、最初の travel_min が変わる。"""
     # entrance をエントランス起点にしたケース

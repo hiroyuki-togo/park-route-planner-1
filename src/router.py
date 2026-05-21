@@ -101,7 +101,11 @@ def generate_route(
     must_remaining = set(must_visits) - visited
     steps: list[RouteStep] = []
     warnings: list[Warning] = []
-    blocks = sorted(constraints.fixed_blocks, key=lambda b: b.start)
+    # start_time より完全に過去のブロックは消化対象外
+    blocks = sorted(
+        [b for b in constraints.fixed_blocks if b.end > current_time],
+        key=lambda b: b.start,
+    )
 
     while current_time < constraints.close_time:
         # (A) 固定ブロック消化
@@ -274,22 +278,24 @@ def _handle_fixed_block(
             travel_min=travel, wait_min=wait_min, via="dpa",
             label=block.label,
         )
+    # 進行中ブロック（block.start < current_time < block.end）は arrive を現在時刻に丸める
+    actual_start = max(block.start, current_time)
     if block.type == "meal":
         return RouteStep(
             type="meal", id=block.restaurant_id,
-            arrive=block.start, ride_start=block.start, ride_end=block.end,
+            arrive=actual_start, ride_start=actual_start, ride_end=block.end,
             travel_min=0, wait_min=0, via=None, label=block.label,
         )
     if block.type == "show":
         return RouteStep(
             type="show", id=None,
-            arrive=block.start, ride_start=block.start, ride_end=block.end,
+            arrive=actual_start, ride_start=actual_start, ride_end=block.end,
             travel_min=0, wait_min=0, via=None, label=block.label,
         )
     if block.type == "parade":
         return RouteStep(
             type="parade", id=None,
-            arrive=block.start, ride_start=block.start, ride_end=block.end,
+            arrive=actual_start, ride_start=actual_start, ride_end=block.end,
             travel_min=0, wait_min=0, via=None, label=block.label,
         )
     return None
