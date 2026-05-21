@@ -71,17 +71,15 @@
 | T-S1 | `src/simulator.py` + `tests/test_simulator.py` 単体 5 件（TDD） | `1eef2a1` |
 | T-S2 | 統合テスト `test_simulate_then_route` | `33511bb` |
 | T-S3 | `app.py` モード切替 radio + 日付選択 + route_date 変数化 + localStorage 分岐 | `7dbe760` |
-| T-S4 | テスト 52/52 PASS、Streamlit 起動 HTTP 200 確認、ドキュメント更新 | （本コミット） |
+| T-S4 | テスト 52/52 PASS、Streamlit 起動 HTTP 200 確認、ドキュメント更新 | `3646ecf` |
+| T-R1 | リセットボタン 2 種（🧹 セッション / 🗑 完全）を「更新」「ルート生成」行に追加、2 段階確認、widget key 削除、`storage.deleteItem(today_key)` | `432c4ba` |
 
 **動作確認の残タスク**（東郷さん側）:
 
-- [ ] `🟢 当日モード`で `must_visits` / 食事 / DPA 設定 → 「🔄 更新」→ 「⚡ ルート生成」が Phase 6 と同じ結果（回帰なし）
-- [ ] `🔮 シミュレーションモード`に切替 → 「想定日」が 2026-05-25 で表示
-- [ ] シミュモードで「🔮 合成 snapshot 生成」→ 成功メッセージ「合成 snapshot 生成：2026-05-25 9:00 開園想定」
-- [ ] そのまま「🔮 シミュレーション」→ 9:00 開始〜終園 21:00 のルートが返る
-- [ ] 雨天モード ON で再生成 → 屋外アトラクションの待ち時間が小さく出ること
-- [ ] ブラウザ DevTools の Application > LocalStorage で `tdl_settings_{今日}` がシミュ操作中に更新されていないこと
-- [ ] 当日モードに戻して既存設定がそのまま残っていること
+- [x] シミュレーションモードの基本動作（5/21 東郷さん確認済「いいと思う」）
+- [ ] `🧹 セッション`リセット押下 → 2 段階確認 → 設定が初期化される、リロード後に localStorage から復元される
+- [ ] `🗑 完全`リセット押下 → 2 段階確認 → 設定が初期化され、リロード後も空のまま
+- [ ] リセット後、weather toggle・優先度 slider・must-visit チェック・食事/ショー/DPA expander 内も全部リセットされていること（widget key 削除の効き目）
 
 ---
 
