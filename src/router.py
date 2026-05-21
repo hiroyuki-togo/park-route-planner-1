@@ -85,15 +85,20 @@ def generate_route(
     constraints: RouteConstraints,
     priorities: dict[str, int],
     must_visits: set[str],
+    visited: set[str] | None = None,
     weather_mode: str = "normal",
 ) -> RouteResult:
-    """ルートを生成する。"""
+    """ルートを生成する。
+
+    visited: ルート生成開始時点で既に消化済みのアトラクション ID 集合。
+    must_visits との競合は visited を優先（消化済みなら must も不要扱い）。
+    """
     attractions_by_id = {a.id: a for a in attractions}
     current_time = constraints.start_time
     current_location = constraints.entrance
     current_area: str | None = None
-    visited: set[str] = set()
-    must_remaining = set(must_visits)
+    visited = set(visited) if visited else set()
+    must_remaining = set(must_visits) - visited
     steps: list[RouteStep] = []
     warnings: list[Warning] = []
     blocks = sorted(constraints.fixed_blocks, key=lambda b: b.start)

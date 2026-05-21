@@ -187,3 +187,72 @@ def test_no_dpa_for_reserved_must(sample_attractions, operating_snapshot):
     assert "beauty_and_beast" in result.unvisited_musts
     kinds = [w.kind for w in result.warnings]
     assert "no_dpa_for_reserved" in kinds
+
+
+def test_visited_attractions_excluded(sample_attractions, operating_snapshot):
+    """visited に渡したアトラクションは候補プールから除外される。"""
+    result = generate_route(
+        snapshot=operating_snapshot,
+        attractions=sample_attractions,
+        constraints=make_constraints(),
+        priorities={"pooh": 5, "big_thunder": 5, "beauty_and_beast": 5},
+        must_visits=set(),
+        visited={"pooh"},
+    )
+    visited_ids = [s.id for s in result.steps if s.type == "attraction"]
+    assert "pooh" not in visited_ids
+    # big_thunder は残っているので訪問される
+    assert "big_thunder" in visited_ids
+
+
+def test_visited_clears_must_visit(sample_attractions, operating_snapshot):
+    """must_visits と visited 両方に同じアトラクションがある場合、既消化扱いで unvisited_musts にも入らない。"""
+    result = generate_route(
+        snapshot=operating_snapshot,
+        attractions=sample_attractions,
+        constraints=make_constraints(),
+        priorities={"pooh": 5, "big_thunder": 5, "beauty_and_beast": 5},
+        must_visits={"big_thunder"},
+        visited={"big_thunder"},
+    )
+    visited_ids = [s.id for s in result.steps if s.type == "attraction"]
+    assert "big_thunder" not in visited_ids
+    assert "big_thunder" not in result.unvisited_musts
+
+
+def test_route_starts_from_current_location(sample_attractions, operating_snapshot):
+    """constraints.entrance をアトラクションの座標にすると、最初の travel_min が変わる。"""
+    # entrance をエントランス起点にしたケース
+    constraints_from_entrance = RouteConstraints(
+        start_time=datetime(2026, 5, 25, 9, 0),
+        close_time=datetime(2026, 5, 25, 21, 0),
+        entrance=(35.6329, 139.8804),
+        fixed_blocks=[],
+    )
+    result_a = generate_route(
+        snapshot=operating_snapshot,
+        attractions=sample_attractions,
+        constraints=constraints_from_entrance,
+        priorities={"pooh": 5, "big_thunder": 5, "beauty_and_beast": 5},
+        must_visits=set(),
+    )
+    # entrance を pooh の座標にしたケース（= 「今プーさん前にいる」状態）
+    constraints_from_pooh = RouteConstraints(
+        start_time=datetime(2026, 5, 25, 9, 0),
+        close_time=datetime(2026, 5, 25, 21, 0),
+        entrance=(35.6330, 139.8810),  # pooh の座標
+        fixed_blocks=[],
+    )
+    result_b = generate_route(
+        snapshot=operating_snapshot,
+        attractions=sample_attractions,
+        constraints=constraints_from_pooh,
+        priorities={"pooh": 5, "big_thunder": 5, "beauty_and_beast": 5},
+        must_visits=set(),
+        visited={"pooh"},  # 既に乗ったので除外
+    )
+    # 最初の attraction step を比較
+    first_a = next(s for s in result_a.steps if s.type == "attraction")
+    first_b = next(s for s in result_b.steps if s.type == "attraction")
+    # entrance 違いで最初の travel_min が異なる
+    assert first_a.travel_min != first_b.travel_min
