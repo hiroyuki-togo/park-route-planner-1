@@ -20,6 +20,18 @@ def test_time_factor_evening():
     assert get_time_factor(20) == 0.7
 
 
+def test_time_factor_before_open_defensive():
+    # hour < 9 は朝の帯 (0.7) と同じ値を返す（フォールスルー 1.0 を防ぐ）
+    assert get_time_factor(8) == 0.7
+    assert get_time_factor(0) == 0.7
+
+
+def test_time_factor_after_close_defensive():
+    # hour >= 21 は夕方の帯 (0.7) と同じ値を返す（フォールスルー 1.0 を防ぐ）
+    assert get_time_factor(21) == 0.7
+    assert get_time_factor(23) == 0.7
+
+
 def test_popularity_factor_keys():
     assert set(POPULARITY_FACTOR.keys()) == {"S", "A", "B", "C"}
 

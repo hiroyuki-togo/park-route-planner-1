@@ -45,7 +45,16 @@ MAIN_STREET_BLOCKING_PAIRS = {
 
 
 def get_time_factor(hour: int) -> float:
-    """指定した時刻に対応する待ち時間係数を返す。"""
+    """指定した時刻に対応する待ち時間係数を返す。
+
+    営業時間外（< 9 / >= 21）は呼び出し側で守る前提だが、フォールスルー
+    で 1.0（昼ピーク並み）を返してしまうと万一抜けたとき分かりにくいので、
+    境界に隣接する帯の値（朝・夕方の 0.7）を明示的に返す defensive ガード。
+    """
+    if hour < 9:
+        return TIME_FACTOR[(9, 10)]
+    if hour >= 21:
+        return TIME_FACTOR[(19, 21)]
     for (start, end), factor in TIME_FACTOR.items():
         if start <= hour < end:
             return factor
