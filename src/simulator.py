@@ -8,10 +8,8 @@ from __future__ import annotations
 
 from datetime import date, datetime, time
 
+from src.constants import OPENING_BASE_WAIT_BY_TIER
 from src.models import Attraction, WaitTimeEntry, WaitTimeSnapshot
-
-
-OPENING_BASE_WAIT_BY_TIER: dict[str, int] = {"S": 20, "A": 15, "B": 10, "C": 5}
 
 
 def build_opening_snapshot(

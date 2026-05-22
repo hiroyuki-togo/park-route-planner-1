@@ -33,6 +33,10 @@ POPULARITY_FACTOR = {"S": 1.0, "A": 0.9, "B": 0.8, "C": 0.7}
 
 EXP_VALUE = {"S": 10, "A": 7, "B": 5, "C": 3}
 
+# シミュレーション snapshot および router フォールバックで使う、
+# 9:00 開園想定の人気度別の標準待ち時間。
+OPENING_BASE_WAIT_BY_TIER: dict[str, int] = {"S": 20, "A": 15, "B": 10, "C": 5}
+
 DPA_WAIT_MIN = 15
 
 # パレード時間中、メインストリートを横断する移動に +15 分ペナルティ

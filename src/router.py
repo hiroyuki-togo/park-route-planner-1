@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from pydantic import BaseModel
 
-from src.constants import DPA_WAIT_MIN, EXP_VALUE
+from src.constants import DPA_WAIT_MIN, EXP_VALUE, OPENING_BASE_WAIT_BY_TIER
 from src.distance import travel_time_min
 from src.models import (
     Attraction,
@@ -17,7 +17,7 @@ from src.models import (
     Warning,
 )
 from src.predictor import predict_wait
-from src.scraper import match_attraction_by_scrape_key
+from src.scraper import match_attraction_by_queue_times_id
 
 
 class RouteConstraints(BaseModel):
@@ -28,13 +28,25 @@ class RouteConstraints(BaseModel):
 
 
 def _is_operating(attraction: Attraction, snapshot: WaitTimeSnapshot) -> bool:
-    entry = match_attraction_by_scrape_key(snapshot.data, attraction.scrape_key)
-    return entry is not None and entry.status == "operating"
+    # queue_times_id 未登録（buzz / minnie_style）= ライブ取得対象外
+    # snapshot に該当エントリなし = データ欠損
+    # どちらも「運営中とみなす」（候補から除外せず予測値で動かす）
+    if attraction.queue_times_id is None:
+        return True
+    entry = match_attraction_by_queue_times_id(snapshot.data, attraction.queue_times_id)
+    if entry is None:
+        return True
+    return entry.status == "operating"
 
 
 def _current_wait(attraction: Attraction, snapshot: WaitTimeSnapshot) -> int:
-    entry = match_attraction_by_scrape_key(snapshot.data, attraction.scrape_key)
-    return entry.wait_min if entry and entry.wait_min is not None else 0
+    # ライブ取得対象外 or snapshot 欠損 → 開園想定の基準値で代用
+    if attraction.queue_times_id is None:
+        return OPENING_BASE_WAIT_BY_TIER[attraction.popularity_tier]
+    entry = match_attraction_by_queue_times_id(snapshot.data, attraction.queue_times_id)
+    if entry is None:
+        return OPENING_BASE_WAIT_BY_TIER[attraction.popularity_tier]
+    return entry.wait_min if entry.wait_min is not None else 0
 
 
 def _candidate_pool(

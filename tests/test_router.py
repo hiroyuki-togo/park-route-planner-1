@@ -1,7 +1,7 @@
 """ルーター（generate_route）のテスト。"""
 from datetime import datetime
 
-from src.models import FixedBlock
+from src.models import Attraction, FixedBlock
 from src.router import RouteConstraints, generate_route
 
 
@@ -275,6 +275,32 @@ def test_ongoing_block_arrive_clamped_to_current_time(sample_attractions, operat
     assert len(meal_steps) == 1
     assert meal_steps[0].arrive == constraints.start_time  # 13:00 に丸められている
     assert meal_steps[0].ride_end == datetime(2026, 5, 25, 13, 30)
+
+
+def test_unmapped_attraction_included_with_predicted_wait(sample_attractions, operating_snapshot):
+    """queue_times_id=None のアトラクション（buzz/minnie_style 想定）も
+    ルート候補に含まれ、predictor 由来の予測値（OPENING_BASE_WAIT_BY_TIER 基準）で動く。"""
+    unmapped = Attraction(
+        id="buzz", name="バズ・ライトイヤー", scrape_key="バズ",
+        area="トゥモローランド", lat=35.6326, lng=139.8825,
+        experience_time_min=4, queue_walk_min=3, default_priority=5,
+        dpa_eligible=False, requires_reservation=False, outdoor=False,
+        popularity_tier="A", queue_times_id=None,
+    )
+    extended = sample_attractions + [unmapped]
+    result = generate_route(
+        snapshot=operating_snapshot,
+        attractions=extended,
+        constraints=make_constraints(),
+        priorities={"pooh": 5, "big_thunder": 5, "beauty_and_beast": 5, "buzz": 5},
+        must_visits={"buzz"},
+    )
+    visited_ids = [s.id for s in result.steps if s.type == "attraction"]
+    # マッピング欠落でも候補に含まれ、訪問される
+    assert "buzz" in visited_ids
+    # buzz の wait_min は予測値由来（OPENING_BASE_WAIT_BY_TIER["A"]=15 が基準、時間帯補正で前後）
+    buzz_step = next(s for s in result.steps if s.id == "buzz")
+    assert 0 < buzz_step.wait_min < 60
 
 
 def test_route_starts_from_current_location(sample_attractions, operating_snapshot):
