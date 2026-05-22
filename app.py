@@ -182,6 +182,13 @@ def main() -> None:
         current_time_val = time(9, 0)
         current_loc_id = "エントランス"
 
+    # 閉園時刻（21:00）チェック — 当日モードで現在時刻が閉園以降ならルート不可
+    if not is_sim_mode and current_time_val >= time(21, 0):
+        st.warning(
+            "⚠️ 現在時刻が閉園時刻（21:00）を過ぎています。"
+            "ルート生成しても空になります。"
+        )
+
     st.write(
         f"アトラクション数：{len(attractions)} 件 / "
         f"レストラン数：{len(restaurants)} 件"

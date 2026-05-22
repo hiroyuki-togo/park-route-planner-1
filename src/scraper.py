@@ -54,16 +54,22 @@ def parse_queue_times_response(raw: str | dict) -> list[WaitTimeEntry]:
 
 
 def _extract_last_updated(raw: str | dict) -> datetime:
-    """Queue-Times レスポンスから last_updated を抽出（UTC → naive datetime）。"""
+    """Queue-Times レスポンスから last_updated を抽出し、JST naive datetime で返す。
+
+    Queue-Times の `last_updated` は ISO 8601 UTC ("...Z")。アプリ内の他の
+    datetime 値（current_time / arrive 等）は全て JST naive で揃えてあるので、
+    予測式 (predictor.predict_wait) で時間差を取る際にズレないよう +9h して
+    JST naive に変換する。
+    """
     data = json.loads(raw) if isinstance(raw, str) else raw
     rides = data.get("rides", [])
     if not rides:
         return datetime.now()
     # 全 ride が同一 timestamp（Queue-Times は park 単位で一括更新）
     ts_str = rides[0].get("last_updated", "")
-    # ISO 8601 "2026-05-22T00:36:04.000Z" → naive datetime (UTC)
     try:
-        return datetime.fromisoformat(ts_str.replace("Z", "+00:00")).replace(tzinfo=None)
+        utc = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        return (utc + timedelta(hours=9)).replace(tzinfo=None)
     except (ValueError, TypeError):
         return datetime.now()
 
