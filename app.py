@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -236,6 +236,10 @@ def main() -> None:
                     st.warning(
                         f"⚠️ {a.name} は予約必須です。DPA を登録してください。"
                     )
+            if a.queue_times_id is None:
+                st.caption(
+                    "⚠️ ライブ取得対象外（Queue-Times 未収録 → 開園想定値で計算）"
+                )
 
     # ─── 食事ブロック ──────────────────────────────────
     with st.expander("▼ 食事ブロック", expanded=False):
@@ -390,7 +394,7 @@ def main() -> None:
     col_fetch, col_gen, col_reset_sess, col_reset_full = st.columns([3, 3, 2, 2])
     with col_fetch:
         fetch_label = (
-            "🔮 合成 snapshot 生成" if is_sim_mode else "🔄 更新（待ち時間取得）"
+            "🔮 合成 snapshot 生成" if is_sim_mode else "🔄 待ち時間を取得（Queue-Times 経由）"
         )
         if st.button(fetch_label, key="btn_fetch"):
             with st.spinner("生成中..." if is_sim_mode else "取得中..."):
@@ -402,15 +406,27 @@ def main() -> None:
                         f"合成 snapshot 生成：{sim_date.isoformat()} 9:00 開園想定"
                     )
                 else:
-                    snap = fetch_realtime_wait_times()
+                    snap = fetch_realtime_wait_times(
+                        last_snapshot=st.session_state.last_snapshot,
+                        last_fetch=st.session_state.last_fetch_time,
+                    )
                     if snap:
                         st.session_state.last_snapshot = snap
                         st.session_state.last_fetch_time = datetime.now()
-                        st.success(f"取得成功：{snap.timestamp.strftime('%H:%M')}")
+                        # snapshot.timestamp は Queue-Times 由来の UTC naive datetime
+                        jst = snap.timestamp + timedelta(hours=9)
+                        st.success(
+                            f"取得成功：{jst.strftime('%H:%M')} 時点 "
+                            f"(Powered by Queue-Times.com)"
+                        )
                     else:
-                        st.error(
-                            "取得に失敗しました（API 応答なし & フォールバック先のスナップショットも見つかりません）。"
-                            "詳細は streamlit 起動ターミナルのログを確認してください。"
+                        # Queue-Times も snapshot ファイルも無い → シミュ値で代替
+                        fallback = build_opening_snapshot(attractions, route_date)
+                        st.session_state.last_snapshot = fallback
+                        st.session_state.last_fetch_time = datetime.now()
+                        st.warning(
+                            "Queue-Times に接続できませんでした。"
+                            "シミュレーション値（9:00 開園想定）で代替します。"
                         )
 
     with col_gen:
@@ -579,6 +595,12 @@ def main() -> None:
             "weather_mode": st.session_state.weather_mode,
         }
         storage.setItem(today_key, json.dumps(to_save, ensure_ascii=False))
+
+    # ─── フッター（クレジット要件） ─────────────────────
+    st.markdown("---")
+    st.caption(
+        "待ち時間データ: Powered by [Queue-Times.com](https://queue-times.com/)"
+    )
 
 
 if __name__ == "__main__":
