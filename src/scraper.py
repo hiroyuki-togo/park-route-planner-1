@@ -1,4 +1,10 @@
-"""TDL 公式 JSON API から待ち時間データを取得・パースする。"""
+"""Queue-Times.com から待ち時間データを取得・パースする。
+
+OLC 公式の `/_/realtime/tdl_attraction.json` は WAF で完全黙殺されるため、
+第三者の集約 API である Queue-Times.com 経由で TDL（park_id=274）のデータを取得する。
+
+クレジット要件: UI に「Powered by Queue-Times.com」のリンク表示が必須（app.py 側で対応）。
+"""
 from __future__ import annotations
 
 import json
@@ -13,60 +19,75 @@ from src.models import WaitTimeEntry, WaitTimeSnapshot
 _logger = logging.getLogger(__name__)
 
 
-TDL_JSON_URL = "https://www.tokyodisneyresort.jp/_/realtime/tdl_attraction.json"
+QUEUE_TIMES_URL = "https://queue-times.com/parks/274/queue_times.json"
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
 )
 CACHE_TTL_MIN = 5
-REQUEST_TIMEOUT_SEC = 30
+REQUEST_TIMEOUT_SEC = 10  # Queue-Times は高速応答（公式直叩きと違いタイムアウトリスク低）
 
 
-def parse_json_to_entries(raw: str | list) -> list[WaitTimeEntry]:
-    """JSON 文字列 or 配列からアトラクションエントリのリストを抽出する。"""
+# ─── パース ────────────────────────────────────────
+
+
+def parse_queue_times_response(raw: str | dict) -> list[WaitTimeEntry]:
+    """Queue-Times の JSON レスポンスから WaitTimeEntry のリストを抽出する。
+
+    入力フォーマット:
+        {"lands": [...], "rides": [{"id": int, "name": str,
+                                    "is_open": bool, "wait_time": int,
+                                    "last_updated": str(ISO 8601 UTC)}]}
+    """
     data = json.loads(raw) if isinstance(raw, str) else raw
     entries: list[WaitTimeEntry] = []
-    for item in data:
-        name = (item.get("FacilityName") or "").strip()
-        if not name:
-            continue
-        standby = item.get("StandbyTime")
-        op_cd = item.get("OperatingStatusCD")
-        wait_min, status = _classify(standby, op_cd)
-        entries.append(WaitTimeEntry(name=name, wait_min=wait_min, status=status))
+    for ride in data.get("rides", []):
+        is_open = bool(ride.get("is_open"))
+        wait = ride.get("wait_time")
+        entries.append(WaitTimeEntry(
+            name=str(ride.get("name", "")).strip(),
+            wait_min=int(wait) if is_open and wait is not None else None,
+            status="operating" if is_open else "closed",
+            queue_times_id=ride.get("id"),
+        ))
     return entries
 
 
-def _classify(standby: int | None, op_cd: str | None) -> tuple[int | None, str]:
-    """StandbyTime と OperatingStatusCD から (wait_min, status) を判定する。"""
-    if op_cd == "002":
-        return None, "closed"
-    if standby is None:
-        return None, "unknown"
-    return int(standby), "operating"
+def _extract_last_updated(raw: str | dict) -> datetime:
+    """Queue-Times レスポンスから last_updated を抽出（UTC → naive datetime）。"""
+    data = json.loads(raw) if isinstance(raw, str) else raw
+    rides = data.get("rides", [])
+    if not rides:
+        return datetime.now()
+    # 全 ride が同一 timestamp（Queue-Times は park 単位で一括更新）
+    ts_str = rides[0].get("last_updated", "")
+    # ISO 8601 "2026-05-22T00:36:04.000Z" → naive datetime (UTC)
+    try:
+        return datetime.fromisoformat(ts_str.replace("Z", "+00:00")).replace(tzinfo=None)
+    except (ValueError, TypeError):
+        return datetime.now()
 
 
-from difflib import SequenceMatcher
+# ─── マッチ ─────────────────────────────────────────
 
 
-def match_attraction_by_scrape_key(
-    entries: list[WaitTimeEntry], scrape_key: str, threshold: float = 0.6
+def match_attraction_by_queue_times_id(
+    entries: list[WaitTimeEntry], qt_id: int | None,
 ) -> WaitTimeEntry | None:
-    """scrape_key とエントリ名をファジーマッチして最も近いものを返す。"""
-    best: WaitTimeEntry | None = None
-    best_score = 0.0
+    """Queue-Times の数値 ID で該当エントリを返す。null 入力 or 未登録は None。"""
+    if qt_id is None:
+        return None
     for e in entries:
-        score = SequenceMatcher(None, scrape_key, e.name).ratio()
-        # 部分一致もボーナス
-        if scrape_key in e.name:
-            score += 0.3
-        if score > best_score:
-            best_score = score
-            best = e
-    return best if best_score >= threshold else None
+        if e.queue_times_id == qt_id:
+            return e
+    return None
+
+
+# ─── キャッシュ / フォールバック ─────────────────────
 
 
 def _is_cache_fresh(last_fetch: datetime | None) -> bool:
+    """前回取得から CACHE_TTL_MIN 分以内なら True。"""
     if last_fetch is None:
         return False
     return (datetime.now() - last_fetch) < timedelta(minutes=CACHE_TTL_MIN)
@@ -84,21 +105,30 @@ def _load_snapshot_from_file(path: Path) -> WaitTimeSnapshot:
 
 def fetch_realtime_wait_times(
     snapshot_dir: Path = Path("data/snapshots"),
-    force: bool = False,
+    last_snapshot: WaitTimeSnapshot | None = None,
+    last_fetch: datetime | None = None,
 ) -> WaitTimeSnapshot | None:
-    """公式 JSON API から取得し、失敗時は直近スナップショットにフォールバック。"""
+    """Queue-Times API から取得し、失敗時は直近スナップショットにフォールバック。
+
+    last_fetch が CACHE_TTL_MIN 内であれば、HTTP を叩かず last_snapshot を返す
+    （ボタン連打で第三者 API を叩きすぎないため）。
+    """
+    if _is_cache_fresh(last_fetch) and last_snapshot is not None:
+        _logger.info("returning cached snapshot (within %d min)", CACHE_TTL_MIN)
+        return last_snapshot
+
     snapshot_dir.mkdir(parents=True, exist_ok=True)
 
     try:
         resp = requests.get(
-            TDL_JSON_URL,
+            QUEUE_TIMES_URL,
             headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
             timeout=REQUEST_TIMEOUT_SEC,
         )
         resp.raise_for_status()
-        entries = parse_json_to_entries(resp.text)
+        entries = parse_queue_times_response(resp.text)
         snapshot = WaitTimeSnapshot(
-            timestamp=datetime.now(),
+            timestamp=_extract_last_updated(resp.text),
             park="TDL",
             data=entries,
         )
