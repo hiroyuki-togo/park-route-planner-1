@@ -90,6 +90,10 @@ def main() -> None:
     storage = LocalStorage()
     today_key = f"tdl_settings_{date.today().isoformat()}"
 
+    # マスタにないアトラクション ID を localStorage から復元しないようにフィルタ
+    # （buzz のようにマスタから削除された後も「必ず乗る」等が残るのを防ぐ）
+    valid_attraction_ids = {a.id for a in load_attractions()}
+
     if not st.session_state.get("_loaded"):
         saved_raw = storage.getItem(today_key)
         if saved_raw:
@@ -99,7 +103,13 @@ def main() -> None:
                 )
                 for k, v in saved.items():
                     if k in ("must_visits", "visited_attractions"):
-                        st.session_state[k] = set(v)
+                        # マスタに存在する id だけ復元
+                        st.session_state[k] = set(v) & valid_attraction_ids
+                    elif k == "priorities":
+                        st.session_state[k] = {
+                            kk: vv for kk, vv in v.items()
+                            if kk in valid_attraction_ids
+                        }
                     else:
                         st.session_state[k] = v
             except Exception:
@@ -420,12 +430,22 @@ def main() -> None:
                     if snap:
                         st.session_state.last_snapshot = snap
                         st.session_state.last_fetch_time = datetime.now()
-                        # snapshot.timestamp は Queue-Times 由来の UTC naive datetime
-                        jst = snap.timestamp + timedelta(hours=9)
-                        st.success(
-                            f"取得成功：{jst.strftime('%H:%M')} 時点 "
-                            f"(Powered by Queue-Times.com)"
+                        # snapshot.timestamp は scraper 側で既に JST naive に変換済み
+                        age_min = int(
+                            (datetime.now() - snap.timestamp).total_seconds() / 60
                         )
+                        if age_min > 30:
+                            st.warning(
+                                f"⚠️ 取得成功：{snap.timestamp.strftime('%H:%M')} 時点 "
+                                f"（{age_min} 分前のデータ、古い可能性。"
+                                f"TDL 開園前 / 閉園後は Queue-Times 側の更新が止まります）"
+                                f"  Powered by Queue-Times.com"
+                            )
+                        else:
+                            st.success(
+                                f"取得成功：{snap.timestamp.strftime('%H:%M')} 時点 "
+                                f"({age_min} 分前)  Powered by Queue-Times.com"
+                            )
                     else:
                         # Queue-Times も snapshot ファイルも無い → シミュ値で代替
                         fallback = build_opening_snapshot(attractions, route_date)
