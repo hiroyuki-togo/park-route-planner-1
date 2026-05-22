@@ -2,7 +2,7 @@
 
 > 次セッションの Claude Code が状況を即時把握するための引き継ぎファイル。
 
-**最終更新**: 2026-05-22（Queue-Times.com 採用によるライブ取得復活 完了後）
+**最終更新**: 2026-05-22 夕（Queue-Times 採用 + 後続バグ修正 5 件 + sim 精度向上 + mode 切替整理 完了後）
 **来園日**: 2026-05-25（月）
 **残り日数**: 3 日
 
@@ -10,10 +10,23 @@
 
 ## 1. 現在のステータス
 
-**Phase 1〜6 完了 + シミュ + 当日モード実運用 + デザイン適用 + UX 微改善 + ライブ取得復活 完了**。
-**テスト 63/63 PASS**、Streamlit 起動確認済 + 東郷さん目視確認済（再起動後）。
+**Phase 1〜6 完了 + シミュ + 当日モード実運用 + デザイン適用 + UX 微改善 + ライブ取得復活 + 後続改善 完了**。
+**テスト 64/64 PASS**、Streamlit 起動確認済 + 東郷さん目視確認済（複数回）。
 
-今日（5/22）のセッションで発覚 → 解決した最大トピック: **アプリ史上「ライブ取得が動いている」と認識していたが、実態は dummy snapshot にずっとフォールバックしていただけ**（lessons #22）。原因は OLC 公式 API が WAF で curl/requests を完全黙殺する仕様変更（lessons #23）。第三者の集約 API **Queue-Times.com** に切り替えて 5 分毎更新の実データ取得を実現（lessons #24）。同セッションで併せて **「ルートカードに体験時間・終了時刻を表示」+「徒歩係数を家族構成 2.0 km/h に調整」** も完了。
+5/22 1 日で本日累計 **13 コミット** 進めた:
+
+| 主題 | コミット |
+|---|---|
+| ルートカード体験時間表示 + 徒歩係数 2.0 km/h | `4f56200` / `2632a40` |
+| Queue-Times.com 採用（OLC WAF 黙殺対応、5 段階 Phase A-E） | `5900440` / `7ab57e4` / `4a5e37b` / `576bee7` / `51f0722` |
+| 未収録アトラクション注記の位置修正 | `b249c6b` |
+| buzz（2024 クローズ済）削除 + minnie_style マッピング修正 | `208862d` |
+| TZ バグ修正（UTC→JST）+ 閉園時警告 | `8d7db19` |
+| シミュ精度向上（Queue-Times stats 平均値、美女と野獣 20→74 分等） | `dbe5421` |
+| UI 3 件修正（TZ 二重変換 / localStorage zombie / 古いデータ警告） | `ef7b19f` |
+| モード切替で route+snapshot をクリア（sim/live 別軸化） | `ea5f37f` |
+
+今日発覚 → 解決した最大トピック: **アプリ史上「ライブ取得が動いている」と認識していたが、実態は dummy snapshot にずっとフォールバックしていただけ**（lessons #22）。原因は OLC 公式 API が WAF で curl/requests を完全黙殺する仕様変更（lessons #23）。第三者の集約 API **Queue-Times.com** に切り替えて 5 分毎更新の実データ取得を実現（lessons #24）。
 
 残るは **Phase 7（デプロイ、5/23-24 目標）**。
 
@@ -392,7 +405,7 @@ PROGRESS.md §3 A の 3 タスク（Task 26 = requirements.txt + README / Task 2
 
 - [ ] `git log --oneline -15` で 5/22 の Queue-Times 関連コミット 5 個 + 5/22 ルートカード 2 件 + 5/21 デザイン 3 件が見えること
 - [ ] `git status` でクリーン
-- [ ] `.venv/bin/pytest -q` で **63 passed**
+- [ ] `.venv/bin/pytest -q` で **64 passed**
 - [ ] `.venv/bin/streamlit run app.py` で UI が起動し、当日モードの「🔄 待ち時間を取得（Queue-Times 経由）」で実データ取得できること（5/22 朝で美女と野獣 140 分・ベイマックス 120 分等）
 - [ ] フッターに「Powered by [Queue-Times.com](https://queue-times.com/)」表示
 - [ ] アトラクション設定の buzz / minnie_style 行に「⚠️ ライブ取得対象外」注記
