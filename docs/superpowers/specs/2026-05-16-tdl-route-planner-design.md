@@ -22,7 +22,7 @@
 
 ### 1.2 スコープ（v1 で実装する）
 
-- TDL 公式サイト（`/tdl/realtime/attraction/`）からのリアルタイム待ち時間取得
+- リアルタイム待ち時間取得（Queue-Times.com 集約 API 経由、5/22 採用 — §4 参照）
 - 終日ルート自動生成（貪欲法 + スコアリング）
 - DPA 予約の手動登録とルートへの自動組み込み
 - must-visit ハイブリッド優先度（チェックボックス + ★1-5 スライダー）
@@ -245,48 +245,50 @@ class Warning(BaseModel):
 
 ## 4. データ取得仕様（`src/scraper.py`）
 
+> **5/22 改訂**: OLC 公式の `/_/realtime/tdl_attraction.json` は WAF が curl/requests を TLS フィンガープリントで完全黙殺するため取得不能（lessons #23）。第三者の集約サービス Queue-Times.com 経由に切り替え。
+
 ### 4.1 対象エンドポイント
 
-`https://www.tokyodisneyresort.jp/_/realtime/tdl_attraction.json`
+`https://queue-times.com/parks/274/queue_times.json`
 
-公式 TDL リアルタイム待ち時間ページが内部的に叩いている **公開 JSON エンドポイント**（ログイン不要、ブラウザの開発者ツールで誰でも確認可能）。
-HTML ページはクライアントサイドレンダリングで JS が JSON を取得して画面を組み立てるため、HTML 直接スクレイピングではデータが取れない。
+Queue-Times が独自に集約している TDL（park_id=274）の待ち時間 JSON。無料・認証不要・5 分毎更新。クレジット要件「Powered by Queue-Times.com」を UI フッターに常時表示。
 
 ### 4.2 JSON フィールドマッピング
 
-レスポンスはアトラクション配列。主要フィールド：
+レスポンス：`{"lands": [], "rides": [...]}`。`rides` は 37 件のライド配列。
 
 | JSON フィールド | 我々のフィールド | 備考 |
 |---|---|---|
-| `FacilityName` | `name` | フル正式名（例：「美女と野獣"魔法のものがたり"」） |
-| `StandbyTime` | `wait_min` | `int` または `null`（null = 待ち時間情報なし） |
-| `OperatingStatusCD` | (内部判定用) | `"002"` = 案内終了、その他は実データ |
-| `OperatingStatus` | (内部判定用) | テキスト表記の運営状態 |
-| `DPAStatusCD` | （v2 で活用） | DPA 販売状況コード |
-| `FsStatusCD` | （v2 で活用） | スタンバイパス状況コード |
-| `UpdateTime` | （メタ情報） | データ更新時刻（"HH:MM"） |
+| `id` | `queue_times_id` | Queue-Times の内部 ID（例: 8255 = 美女と野獣）。マッチに使う |
+| `name` | `name` | 英語名（例: "Enchanted Tale of Beauty and the Beast"） |
+| `is_open` | (内部判定用) | bool。false → status="closed" / true → "operating" |
+| `wait_time` | `wait_min` | int。`is_open=false` のときは None に変換 |
+| `last_updated` | (snapshot.timestamp に転記) | ISO 8601 UTC（park 単位で全 ride 同時刻） |
 
-**`status` 判定ルール**：
-- `OperatingStatusCD == "002"`（案内終了）→ `closed`
-- `StandbyTime is not None` → `operating`
-- それ以外（待ち時間 null かつ 002 でない）→ `unknown`
+**`status` 判定ルール**:
+- `is_open == false` → `closed`、`wait_min = None`
+- `is_open == true` → `operating`、`wait_min = int(wait_time)`
+
+**マッチング戦略**: [attractions.json](../../../data/attractions.json) の各エントリに `queue_times_id: int | null` を持たせ、数値 ID で確実にマッチ。19/21 件マッピング済、未収録の 2 件（buzz / minnie_style）は `queue_times_id: null` → router 側で `OPENING_BASE_WAIT_BY_TIER` から開園想定値を代用（§7 参照）。
 
 ### 4.3 設計要件
 
-- **アクセス頻度**：5〜10分に1回まで（規約 + 先方負荷の両面）
-- **User-Agent**：実在ブラウザ文字列（裸の Python requests ではブロックされる可能性あり）
-- **タイムアウト**：30秒
-- **リトライ**：3回（指数バックオフ）
-- **失敗時**：直近のスナップショットにフォールバック
-- **キャッシュ**：同セッション内で前回取得から5分以内なら再取得せず直近値を返す
-- **出力**：取得した内部正規化スナップショットを `data/snapshots/{YYYY-MM-DD}_{HHMM}.json` に保存
+- **アクセス頻度**: 5 分キャッシュ（Queue-Times の更新頻度に合わせる、ボタン連打抑止）
+- **User-Agent**: 実在ブラウザ文字列（Queue-Times は寛容だが慣習として）
+- **タイムアウト**: 10 秒（Queue-Times は高速応答、Mac から 0.3 秒で 200 OK 確認済み）
+- **リトライ**: なし（タイムアウト時は即フォールバック）
+- **失敗時の段階フォールバック**:
+  1. キャッシュ（前回取得から 5 分以内）→ そのまま返す
+  2. Queue-Times 応答なし → `data/snapshots/` の最新ファイルから復元
+  3. snapshot ファイルもなし → `build_opening_snapshot()` のシミュ値で代替（app.py 側で実装）
+- **出力**: 取得した正規化スナップショットを `data/snapshots/{YYYY-MM-DD}_{HHMM}.json` に保存
 
 ### 4.4 エッジケース
 
-- JSON 構造変更で抽出失敗 → ログ + 直近スナップショット使用
-- アトラクション名表記揺れ → `attractions.json` の `scrape_key` で `difflib.get_close_matches`（閾値 0.6 + 部分一致ボーナス）。JSON は正式名なので揺れは少ないが、マスタ側の短縮表記との照合で必要
-- 全アトラクション運営休止 → 空スナップショットを記録、ルータ側で扱う
-- API レート制限を受けた場合（HTTP 429 など）→ リトライ後にフォールバック
+- Queue-Times が新アトラクションを未収録 → `queue_times_id: null` で予測値運用（buzz / minnie_style が該当）
+- Queue-Times が応答しない → 段階フォールバック（4.3 参照）
+- Queue-Times 自体が廃止された場合 → ThemeParks.wiki 等の代替を検討（v2 リスク）
+- 規約変更（クレジット表示要件の追加等）→ Queue-Times API ドキュメントを年次確認
 
 ---
 

@@ -2,19 +2,20 @@
 
 > 次セッションの Claude Code が状況を即時把握するための引き継ぎファイル。
 
-**最終更新**: 2026-05-21（デザイン適用 + UX 微改善 完了後 / 同日夜）
+**最終更新**: 2026-05-22（Queue-Times.com 採用によるライブ取得復活 完了後）
 **来園日**: 2026-05-25（月）
-**残り日数**: 4 日
+**残り日数**: 3 日
 
 ---
 
 ## 1. 現在のステータス
 
-**Phase 1〜6 完了 + シミュレーション + 当日モード実運用 + デザイン適用 + UX 微改善 完了**。
-37 コミット、**テスト 59/59 PASS**、Streamlit 起動確認済 + 東郷さん目視確認済。
-今日（5/21）のセッションで **Theme Park Warm UI**（theme.py / .streamlit/config.toml）と
-論点 14 件の整理が完了し、推奨実装枠 5 件（A2 / B5 / C2 / E3 / F1）も全て適用。
-残るは **Phase 7（デプロイ、5/22-23 目標）** と、**5/18 営業時間確定後・5/24 リハ時の追従**。
+**Phase 1〜6 完了 + シミュ + 当日モード実運用 + デザイン適用 + UX 微改善 + ライブ取得復活 完了**。
+**テスト 63/63 PASS**、Streamlit 起動確認済 + 東郷さん目視確認済（再起動後）。
+
+今日（5/22）のセッションで発覚 → 解決した最大トピック: **アプリ史上「ライブ取得が動いている」と認識していたが、実態は dummy snapshot にずっとフォールバックしていただけ**（lessons #22）。原因は OLC 公式 API が WAF で curl/requests を完全黙殺する仕様変更（lessons #23）。第三者の集約 API **Queue-Times.com** に切り替えて 5 分毎更新の実データ取得を実現（lessons #24）。同セッションで併せて **「ルートカードに体験時間・終了時刻を表示」+「徒歩係数を家族構成 2.0 km/h に調整」** も完了。
+
+残るは **Phase 7（デプロイ、5/23-24 目標）**。
 
 ---
 
@@ -98,6 +99,37 @@
 - [ ] `🧹 セッション`リセット押下 → 2 段階確認 → 設定が初期化される、リロード後に localStorage から復元される
 - [ ] `🗑 完全`リセット押下 → 2 段階確認 → 設定が初期化され、リロード後も空のまま
 - [ ] リセット後、weather toggle・優先度 slider・must-visit チェック・食事/ショー/DPA expander 内も全部リセットされていること（widget key 削除の効き目）
+
+### ライブ取得を Queue-Times.com 経由に切替（第一命題復活） — 5/22 完了
+
+5/22 セッションで発覚した事実: アプリ史上ライブ取得は一度も成功しておらず、`fetch_realtime_wait_times()` の except 分岐が常に `2026-05-20_1628_dummy.json` を返していただけだった（UI には毎回「取得成功：16:28」と表示されていたため誤認）。原因は OLC が curl/requests を TLS 指紋で完全黙殺する WAF を導入したこと + 待ち時間ページ自体の公開停止（iPhone Safari → `calendar.html` リダイレクト）。
+
+**選択肢の網羅検討** → Queue-Times.com の集約 API（park_id=274、無料、認証不要、5 分毎更新）が実用可能と確認。東郷さんの iPhone Safari からも JSON 取得成功、Mac 側 curl も 0.28 秒で 200 OK。19/21 件のマッピング完了（buzz / minnie_style は Queue-Times 未収録、null 運用）。
+
+| コミット | 内容 |
+|---|---|
+| `5900440` | **Phase A**: data/attractions.json に queue_times_id 21 件 + src/models.py に Attraction.queue_times_id / WaitTimeEntry.queue_times_id |
+| `7ab57e4` | **Phase B**: src/scraper.py を Queue-Times パース・ID マッチ・5 分実キャッシュに全書換 + tests/fixtures/queue_times_sample.json 新規 + test_scraper.py 12 件 PASS |
+| `4a5e37b` | **Phase C**: src/constants.py に OPENING_BASE_WAIT_BY_TIER 移動、src/router.py で queue_times_id null は予測値代用、conftest 更新、test_router 新規 1 件追加（13 PASS） |
+| `576bee7` | **Phase D**: app.py 取得ボタンラベル変更、JST 表示、Queue-Times 失敗時シミュ snapshot 自動フォールバック、queue_times_id null 行に「⚠️ 予測値」注記、フッターに「Powered by Queue-Times.com」常時表示 |
+| (このコミット) | **Phase E (docs)**: CLAUDE.md §2 / 仕様書 §1.2 §4 / lessons.md #22-24 / PROGRESS.md 更新 |
+
+**動作確認** (東郷さん側):
+- [ ] Streamlit 再起動後、当日モード → 「🔄 待ち時間を取得（Queue-Times 経由）」で実データが取れる（last_updated が今日の時刻）
+- [ ] 美女と野獣の wait_min が当日実値（例: 140 分）でルートに反映される
+- [ ] アトラクション設定の buzz / minnie_style 行に「⚠️ ライブ取得対象外」注記が出る
+- [ ] フッターに「Powered by Queue-Times.com」のクレジットリンクが見える
+
+---
+
+### ルートカード表示拡張 + 徒歩係数調整 — 5/22 完了
+
+| コミット | 内容 |
+|---|---|
+| `4f56200` | **徒歩係数調整**: PARK_FACTOR_NORMAL 1.4→2.0、RAIN 1.7→2.3（家族 6 人 + 2 歳児 + ベビーカー想定で実効 2.0 km/h） |
+| `2632a40` | **ルートカード表示**: 待ち時間 > 0 のとき体験時間が elif で隠れていた問題を修正。attraction/dpa は「待ち15分 ・ 体験3分 ・ → 09:52 終了」フル表示、meal/show/parade は「90分 ・ → 13:30 終了」表示 |
+
+---
 
 ### デザイン適用 + UX 微改善（Theme Park Warm v2 / v2.1 + 推奨 5 件） — 5/21 完了
 
@@ -303,14 +335,13 @@ JSON エンドポイント：`https://www.tokyodisneyresort.jp/_/realtime/tdl_at
 | `.claude/` ディレクトリが untracked のまま | 必要なら `.gitignore` に追記。今は無害 |
 | omnibus の初期入力座標が TDL 範囲外（駐車場付近）→ 東郷さんと相談しワールドバザール内に修正済 | 解決済（`238438a`）。同種のミス防止のため lessons.md #11 に分布ベース sanity check を記録 |
 
-### ライブ API のレート制限
+### ライブ API のレート制限 → **5/22 解消**
 
-過去セッションで `fetch_realtime_wait_times()` の実 API 呼び出しが **タイムアウト** したことあり。原因の可能性：
+旧仕様: OLC 公式 `/_/realtime/tdl_attraction.json` を直叩き → 「レート制限でタイムアウト」と認識していた。
 
-- Task 5 で 1.8MB HTML をダウンロードした直後の連続アクセス → IP ベースのレート制限
-- アプリ側のキャッシュ（5 分 TTL）と無関係に、外側のネットワーク層で抑制された
+5/22 セッションで実態判明: OLC が WAF を導入し、**curl/requests を TLS 指紋で完全黙殺**（Akamai の silent drop）。レート制限ではなく構造的に取得不可能な状態。Queue-Times.com（park_id=274）の集約 API に切替で **完全に解消**（5 分毎更新の実データ取得）。
 
-**対処**：時間を置けば回復するはず。コードロジック上の問題ではない（オフラインテスト 37/37 PASS）。Phase 5 はルーター実装で実 API を叩く必要なし。Phase 6（Streamlit UI）の動作確認時に再確認。
+詳細は lessons #22-24 / 仕様書 §4 / §2「デザイン適用」末尾の Queue-Times セクション参照。
 
 ### 確定した設計判断
 
@@ -347,21 +378,25 @@ JSON エンドポイント：`https://www.tokyodisneyresort.jp/_/realtime/tdl_at
 ## 8. 次セッション開始時のおすすめプロンプト
 
 ```
-ディズニーランドのルート生成ツール、機能・デザイン・UX ともに完成（テスト 59/59 PASS、37 コミット、Theme Park Warm UI 適用済）。
-今日は Phase 7（デプロイ）を進めたい。
+ディズニーランドのルート生成ツール、機能完全＆ライブ取得復活（Queue-Times.com 採用）まで完了。
+テスト 63/63 PASS、Theme Park Warm UI 適用済。残りは Phase 7（デプロイ）のみ。
 
 PROGRESS.md §3 A の 3 タスク（Task 26 = requirements.txt + README / Task 27 = GitHub repo + Streamlit Cloud / Task 28 = デプロイ後動作確認）の手順を整理してください。GitHub の用語（PR / branch / remote / fork 等）は東郷さんが不慣れなので省略せず展開する（lessons #4）。
 
-事前に `.venv/bin/pytest -q` で **59/59 PASS** + `.venv/bin/streamlit run app.py` で UI が起動して theme.py のアイボリー背景 + オレンジボタン + カード型ルートが反映されていることを目視確認してください。
+特に Streamlit Cloud のサーバ（米国/アジア IP）から Queue-Times.com が叩けるかは Phase 7 の中で必須検証ポイント。
+
+事前に `.venv/bin/pytest -q` で **63/63 PASS** + Streamlit 起動 → 当日モードで「🔄 待ち時間を取得（Queue-Times 経由）」ボタンが動くこと、フッターに「Powered by Queue-Times.com」が出ること、queue_times_id null の buzz/minnie_style 行に「⚠️ ライブ取得対象外」注記が出ることを目視確認してください。
 ```
 
 ### 引き継ぎチェックリスト（次セッション冒頭で確認すること）
 
-- [ ] `git log --oneline -10` で最近のコミット（`ea41e0b / bc42e73 / 3f6efb8` 5/21 夜の 3 件、`6c49c5a` 過去ブロック修正 など）が見えること
-- [ ] `git status` でクリーン（`theme.py` / `.streamlit/config.toml` がコミット済で untracked ではないこと）
-- [ ] `.venv/bin/pytest -q` で **59 passed**
-- [ ] `.venv/bin/streamlit run app.py` で UI が起動し、**Theme Park Warm**（アイボリー背景 #FFF8F0 / オレンジボタン #D85A30 / カード型ルート）が反映されていること
-- [ ] CLAUDE.md / lessons.md（**#17〜#21** を含む）/ PROGRESS.md §2 末尾「デザイン適用」セクション + §3 A を読んで、次の主題（Phase 7）と情報待ち枠を把握
+- [ ] `git log --oneline -15` で 5/22 の Queue-Times 関連コミット 5 個 + 5/22 ルートカード 2 件 + 5/21 デザイン 3 件が見えること
+- [ ] `git status` でクリーン
+- [ ] `.venv/bin/pytest -q` で **63 passed**
+- [ ] `.venv/bin/streamlit run app.py` で UI が起動し、当日モードの「🔄 待ち時間を取得（Queue-Times 経由）」で実データ取得できること（5/22 朝で美女と野獣 140 分・ベイマックス 120 分等）
+- [ ] フッターに「Powered by [Queue-Times.com](https://queue-times.com/)」表示
+- [ ] アトラクション設定の buzz / minnie_style 行に「⚠️ ライブ取得対象外」注記
+- [ ] CLAUDE.md / lessons.md（**#22〜#24** を含む）/ PROGRESS.md §2 末尾「ライブ取得復活」セクション + §3 A を読んで、Phase 7 の主題と Queue-Times 検証ポイントを把握
 - [ ] **Phase 7 着手前**に Task 26-28 の手順をプレゼンしてから実装に入る（いきなり requirements.txt や README を書き始めない）
 
 ### 仕様見直しを進めるときの注意

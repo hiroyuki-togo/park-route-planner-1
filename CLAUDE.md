@@ -31,7 +31,7 @@
 
 - **個人利用限定**：公開・商用化なし。GitHub 公開する場合も「個人学習目的・商用利用不可」を明示
 - **Disney / OLC 商標は成果物に使わない**（リポジトリ名・README・UI 文言いずれも）
-- **スクレイピング頻度は5分に1回が下限**。これ未満の頻度は実装上ブロックする
+- **待ち時間データは Queue-Times.com の集約 API 経由で取得**（OLC 公式は WAF が curl/requests を完全黙殺。5/22 確認・[lessons #23](lessons.md)）。Queue-Times の更新頻度は 5 分なので、アプリ側も 5 分キャッシュを実装済み。**「Powered by Queue-Times.com」のクレジット表示が必須**（[scraper.py](src/scraper.py) / app.py フッター）
 - **公式アプリ API 解析・MyDisney ログイン経路には触れない**（規約違反濃厚で却下済み）
 - **対象パークは TDL のみ**。TDS は v1 スコープ外（TDR 共通化は v2 以降で検討）
 
