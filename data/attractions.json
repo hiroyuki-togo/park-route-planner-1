@@ -120,22 +120,6 @@
       "queue_times_id": 8018
     },
     {
-      "id": "buzz",
-      "name": "バズ・ライトイヤーのアストロブラスター",
-      "scrape_key": "バズ",
-      "area": "トゥモローランド",
-      "lat": 35.63281413844311,
-      "lng": 139.8790488531126,
-      "experience_time_min": 4,
-      "queue_walk_min": 3,
-      "default_priority": 4,
-      "dpa_eligible": false,
-      "requires_reservation": false,
-      "outdoor": false,
-      "popularity_tier": "A",
-      "queue_times_id": null
-    },
-    {
       "id": "baymax",
       "name": "ベイマックスのハッピーライド",
       "scrape_key": "ベイマックス",
@@ -165,7 +149,7 @@
       "requires_reservation": false,
       "outdoor": false,
       "popularity_tier": "B",
-      "queue_times_id": null
+      "queue_times_id": 8010
     },
     {
       "id": "roger_rabbit",
