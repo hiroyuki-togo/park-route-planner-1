@@ -27,6 +27,8 @@ class Attraction(BaseModel):
     requires_reservation: bool = False
     outdoor: bool = False
     popularity_tier: PopularityTier
+    # Queue-Times.com の ride id（5/22 時点）。null = 未収録（buzz / minnie_style）
+    queue_times_id: int | None = None
 
 
 class Restaurant(BaseModel):
@@ -62,6 +64,7 @@ class WaitTimeEntry(BaseModel):
     name: str
     wait_min: int | None
     status: StatusType
+    queue_times_id: int | None = None  # Queue-Times.com の ride id
 
 
 class WaitTimeSnapshot(BaseModel):
