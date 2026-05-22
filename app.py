@@ -129,6 +129,16 @@ def main() -> None:
     )
     is_sim_mode = mode == "🔮 シミュレーションモード"
 
+    # モード切替を検知したら、ルートと snapshot をクリアする
+    # （sim = 前日叩き台 / live = 当日リアルタイム の役割分離。
+    #  シミュ snapshot を当日モードで使うと予測値ベースになって意味がない）
+    prev_mode = st.session_state.get("_prev_mode")
+    if prev_mode is not None and prev_mode != mode:
+        st.session_state.current_route = None
+        st.session_state.last_snapshot = None
+        st.session_state.last_fetch_time = None
+    st.session_state._prev_mode = mode
+
     if is_sim_mode:
         sim_date = st.date_input("想定日", value=date(2026, 5, 25))
         st.caption(
