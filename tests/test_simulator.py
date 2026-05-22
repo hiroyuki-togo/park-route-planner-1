@@ -1,9 +1,10 @@
 """シミュレーションモード（合成 snapshot 生成）のテスト。"""
 from datetime import date, datetime, time
 
-from src.models import WaitTimeSnapshot
+from src.constants import OPENING_BASE_WAIT_BY_TIER
+from src.models import Attraction, WaitTimeSnapshot
 from src.router import RouteConstraints, generate_route
-from src.simulator import OPENING_BASE_WAIT_BY_TIER, build_opening_snapshot
+from src.simulator import build_opening_snapshot
 
 
 def test_opening_snapshot_basic(sample_attractions):
@@ -40,6 +41,29 @@ def test_opening_snapshot_empty_attractions():
     assert isinstance(snap, WaitTimeSnapshot)
     assert snap.data == []
     assert snap.timestamp == datetime(2026, 5, 25, 9, 0)
+
+
+def test_opening_snapshot_uses_avg_wait_when_present():
+    """avg_wait_min が設定されているアトラクションは tier フォールバックではなく avg を使う。"""
+    attractions = [
+        Attraction(
+            id="with_avg", name="With Avg", scrape_key="W",
+            area="X", lat=35.633, lng=139.881,
+            experience_time_min=5, queue_walk_min=3, default_priority=5,
+            popularity_tier="S",  # 基準 20 だが avg 42 が優先されるはず
+            queue_times_id=9999, avg_wait_min=42,
+        ),
+        Attraction(
+            id="no_avg", name="No Avg", scrape_key="N",
+            area="X", lat=35.633, lng=139.881,
+            experience_time_min=5, queue_walk_min=3, default_priority=5,
+            popularity_tier="C",  # avg なし → 基準 5 がフォールバック
+        ),
+    ]
+    snap = build_opening_snapshot(attractions, date(2026, 5, 25))
+    by_name = {e.name: e for e in snap.data}
+    assert by_name["With Avg"].wait_min == 42
+    assert by_name["No Avg"].wait_min == OPENING_BASE_WAIT_BY_TIER["C"]
 
 
 def test_simulate_then_route(sample_attractions):

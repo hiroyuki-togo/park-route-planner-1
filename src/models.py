@@ -27,8 +27,11 @@ class Attraction(BaseModel):
     requires_reservation: bool = False
     outdoor: bool = False
     popularity_tier: PopularityTier
-    # Queue-Times.com の ride id（5/22 時点）。null = 未収録（buzz / minnie_style）
+    # Queue-Times.com の ride id（5/22 時点）。null = 未収録
     queue_times_id: int | None = None
+    # Queue-Times stats の全期間平均待ち時間（分）。シミュ snapshot で使う。
+    # null = stats 未収録（長期休止アトラクション等）→ tier ベースフォールバック
+    avg_wait_min: int | None = None
 
 
 class Restaurant(BaseModel):

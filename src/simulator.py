@@ -16,13 +16,23 @@ def build_opening_snapshot(
     attractions: list[Attraction],
     target_date: date,
 ) -> WaitTimeSnapshot:
-    """target_date の 9:00 開園想定の合成 snapshot を返す。"""
+    """target_date の 9:00 開園想定の合成 snapshot を返す。
+
+    各エントリの wait_min は Queue-Times stats の全期間平均（avg_wait_min）を
+    優先し、未収録のものは tier ベースの OPENING_BASE_WAIT_BY_TIER でフォール
+    バックする。
+    """
     ts = datetime.combine(target_date, time(9, 0))
     entries = [
         WaitTimeEntry(
             name=a.name,
-            wait_min=OPENING_BASE_WAIT_BY_TIER[a.popularity_tier],
+            wait_min=(
+                a.avg_wait_min
+                if a.avg_wait_min is not None
+                else OPENING_BASE_WAIT_BY_TIER[a.popularity_tier]
+            ),
             status="operating",
+            queue_times_id=a.queue_times_id,
         )
         for a in attractions
     ]

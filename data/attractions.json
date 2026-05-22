@@ -21,7 +21,8 @@
       "requires_reservation": true,
       "outdoor": false,
       "popularity_tier": "S",
-      "queue_times_id": 8255
+      "queue_times_id": 8255,
+      "avg_wait_min": 74
     },
     {
       "id": "pooh",
@@ -37,7 +38,8 @@
       "requires_reservation": false,
       "outdoor": false,
       "popularity_tier": "S",
-      "queue_times_id": 8008
+      "queue_times_id": 8008,
+      "avg_wait_min": 38
     },
     {
       "id": "peter_pan",
@@ -53,7 +55,8 @@
       "requires_reservation": false,
       "outdoor": false,
       "popularity_tier": "A",
-      "queue_times_id": 7998
+      "queue_times_id": 7998,
+      "avg_wait_min": 24
     },
     {
       "id": "haunted_mansion",
@@ -69,7 +72,8 @@
       "requires_reservation": false,
       "outdoor": false,
       "popularity_tier": "A",
-      "queue_times_id": 8005
+      "queue_times_id": 8005,
+      "avg_wait_min": 28
     },
     {
       "id": "its_a_small_world",
@@ -85,7 +89,8 @@
       "requires_reservation": false,
       "outdoor": false,
       "popularity_tier": "B",
-      "queue_times_id": 8006
+      "queue_times_id": 8006,
+      "avg_wait_min": 11
     },
     {
       "id": "snow_white",
@@ -101,7 +106,8 @@
       "requires_reservation": false,
       "outdoor": false,
       "popularity_tier": "A",
-      "queue_times_id": 7999
+      "queue_times_id": 7999,
+      "avg_wait_min": 14
     },
     {
       "id": "monsters_inc",
@@ -117,7 +123,8 @@
       "requires_reservation": false,
       "outdoor": false,
       "popularity_tier": "S",
-      "queue_times_id": 8018
+      "queue_times_id": 8018,
+      "avg_wait_min": 40
     },
     {
       "id": "baymax",
@@ -133,7 +140,8 @@
       "requires_reservation": false,
       "outdoor": true,
       "popularity_tier": "S",
-      "queue_times_id": 8254
+      "queue_times_id": 8254,
+      "avg_wait_min": 50
     },
     {
       "id": "minnie_style",
@@ -149,7 +157,8 @@
       "requires_reservation": false,
       "outdoor": false,
       "popularity_tier": "B",
-      "queue_times_id": 8010
+      "queue_times_id": 8010,
+      "avg_wait_min": 8
     },
     {
       "id": "roger_rabbit",
@@ -165,7 +174,8 @@
       "requires_reservation": false,
       "outdoor": false,
       "popularity_tier": "B",
-      "queue_times_id": 8009
+      "queue_times_id": 8009,
+      "avg_wait_min": 18
     },
     {
       "id": "big_thunder",
@@ -181,7 +191,8 @@
       "requires_reservation": false,
       "outdoor": true,
       "popularity_tier": "A",
-      "queue_times_id": 7994
+      "queue_times_id": 7994,
+      "avg_wait_min": 38
     },
     {
       "id": "mark_twain",
@@ -197,7 +208,8 @@
       "requires_reservation": false,
       "outdoor": true,
       "popularity_tier": "C",
-      "queue_times_id": 7993
+      "queue_times_id": 7993,
+      "avg_wait_min": 7
     },
     {
       "id": "country_bear",
@@ -213,7 +225,8 @@
       "requires_reservation": false,
       "outdoor": false,
       "popularity_tier": "C",
-      "queue_times_id": 7992
+      "queue_times_id": 7992,
+      "avg_wait_min": 8
     },
     {
       "id": "beaver_brothers",
@@ -229,7 +242,8 @@
       "requires_reservation": false,
       "outdoor": true,
       "popularity_tier": "C",
-      "queue_times_id": 7997
+      "queue_times_id": 7997,
+      "avg_wait_min": 12
     },
     {
       "id": "jungle_cruise",
@@ -245,7 +259,8 @@
       "requires_reservation": false,
       "outdoor": true,
       "popularity_tier": "B",
-      "queue_times_id": 7987
+      "queue_times_id": 7987,
+      "avg_wait_min": 17
     },
     {
       "id": "pirates",
@@ -261,7 +276,8 @@
       "requires_reservation": false,
       "outdoor": false,
       "popularity_tier": "A",
-      "queue_times_id": 7986
+      "queue_times_id": 7986,
+      "avg_wait_min": 11
     },
     {
       "id": "western_river",
@@ -277,7 +293,8 @@
       "requires_reservation": false,
       "outdoor": true,
       "popularity_tier": "C",
-      "queue_times_id": 7988
+      "queue_times_id": 7988,
+      "avg_wait_min": 17
     },
     {
       "id": "swiss_family",
@@ -309,7 +326,8 @@
       "requires_reservation": false,
       "outdoor": false,
       "popularity_tier": "C",
-      "queue_times_id": 7990
+      "queue_times_id": 7990,
+      "avg_wait_min": 7
     },
     {
       "id": "omnibus",
@@ -325,7 +343,8 @@
       "requires_reservation": false,
       "outdoor": true,
       "popularity_tier": "C",
-      "queue_times_id": 7985
+      "queue_times_id": 7985,
+      "avg_wait_min": 7
     }
   ]
 }
