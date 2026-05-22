@@ -221,6 +221,10 @@ def main() -> None:
                     key=f"prio_{a.id}_{token}",
                     help="0 = 乗らない（候補から除外）／1〜5 = 優先度",
                 )
+                if a.queue_times_id is None:
+                    st.caption(
+                        f"⚠️ {a.name} は Queue-Times 未収録 → 開園想定値で計算"
+                    )
             st.session_state.priorities[a.id] = priority
             if must:
                 st.session_state.must_visits.add(a.id)
@@ -236,10 +240,6 @@ def main() -> None:
                     st.warning(
                         f"⚠️ {a.name} は予約必須です。DPA を登録してください。"
                     )
-            if a.queue_times_id is None:
-                st.caption(
-                    "⚠️ ライブ取得対象外（Queue-Times 未収録 → 開園想定値で計算）"
-                )
 
     # ─── 食事ブロック ──────────────────────────────────
     with st.expander("▼ 食事ブロック", expanded=False):
