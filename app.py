@@ -170,17 +170,23 @@ def main() -> None:
         "rain" if st.session_state.get(weather_key) else "normal"
     )
 
-    # ─── 当日モード専用：現在時刻 + 現在位置 ────────────
+    # ─── 現在時刻 + 現在位置（sim/live 共通） ────────────
     attraction_map = {a.id: a for a in attractions}
-    if not is_sim_mode:
-        col_now, col_loc = st.columns(2)
-        with col_now:
-            now_token = st.session_state.get("now_token", 0)
-            current_time_val = st.time_input(
-                "現在時刻",
-                value=datetime.now().time().replace(second=0, microsecond=0),
-                key=f"current_time_{token}_{now_token}",
-            )
+    col_now, col_loc = st.columns(2)
+    with col_now:
+        # sim モードのデフォルトは 9:00、当日モードは現在時刻
+        default_time = (
+            time(9, 0) if is_sim_mode
+            else datetime.now().time().replace(second=0, microsecond=0)
+        )
+        now_token = st.session_state.get("now_token", 0)
+        current_time_val = st.time_input(
+            "現在時刻",
+            value=default_time,
+            key=f"current_time_{token}_{now_token}",
+        )
+        # 「⟳ いま」ボタンは当日モードのみ（sim では時刻を任意に設定する用途）
+        if not is_sim_mode:
             if st.button(
                 "⟳ いま",
                 key=f"btn_now_{token}",
@@ -188,25 +194,27 @@ def main() -> None:
             ):
                 st.session_state.now_token = now_token + 1
                 st.rerun()
-        with col_loc:
-            loc_options = ["エントランス"] + [a.id for a in attractions]
-            current_loc_id = st.selectbox(
-                "現在位置",
-                loc_options,
-                format_func=lambda x: (
-                    "エントランス" if x == "エントランス" else attraction_map[x].name
-                ),
-                key=f"current_loc_{token}",
-            )
-    else:
-        current_time_val = time(9, 0)
-        current_loc_id = "エントランス"
+    with col_loc:
+        loc_options = ["エントランス"] + [a.id for a in attractions]
+        current_loc_id = st.selectbox(
+            "現在位置",
+            loc_options,
+            format_func=lambda x: (
+                "エントランス" if x == "エントランス" else attraction_map[x].name
+            ),
+            key=f"current_loc_{token}",
+        )
 
-    # 閉園時刻（21:00）チェック — 当日モードで現在時刻が閉園以降ならルート不可
-    if not is_sim_mode and current_time_val >= time(21, 0):
+    # 閉園時刻（21:00）チェック — sim/live 両方で警告
+    if current_time_val >= time(21, 0):
         st.warning(
             "⚠️ 現在時刻が閉園時刻（21:00）を過ぎています。"
             "ルート生成しても空になります。"
+        )
+    elif current_time_val < time(9, 0):
+        st.warning(
+            "⚠️ 開園時刻（9:00）前が指定されています。"
+            "ルートは開園後から計算されます。"
         )
 
     st.write(
@@ -433,7 +441,7 @@ def main() -> None:
                     st.session_state.last_snapshot = snap
                     st.session_state.last_fetch_time = datetime.now()
                     st.success(
-                        f"合成 snapshot 生成：{sim_date.isoformat()} 9:00 開園想定"
+                        f"合成 snapshot 生成：{sim_date.isoformat()} {current_time_val.strftime('%H:%M')} スタート想定"
                     )
                 else:
                     snap = fetch_realtime_wait_times(
@@ -469,7 +477,7 @@ def main() -> None:
                         st.session_state.last_fetch_time = datetime.now()
                         st.warning(
                             "Queue-Times に接続できませんでした。"
-                            "シミュレーション値（9:00 開園想定）で代替します。"
+                            f"シミュレーション値（{current_time_val.strftime('%H:%M')} スタート想定）で代替します。"
                         )
 
     with col_gen:
