@@ -379,7 +379,7 @@ def main() -> None:
             key=f"dpa_count_{token}",
         )
         new_dpa: list[dict] = []
-        dpa_options = ["（未選択）"] + [a.id for a in attractions if a.dpa_eligible]
+        dpa_options = ["（未選択）"] + [a.id for a in attractions if a.pass_type is not None]
         for i in range(int(dpa_count)):
             cols = st.columns([3, 2, 2])
             existing = (

@@ -284,7 +284,7 @@ def test_unmapped_attraction_included_with_predicted_wait(sample_attractions, op
         id="buzz", name="バズ・ライトイヤー", scrape_key="バズ",
         area="トゥモローランド", lat=35.6326, lng=139.8825,
         experience_time_min=4, queue_walk_min=3, default_priority=5,
-        dpa_eligible=False, requires_reservation=False, outdoor=False,
+        requires_reservation=False, outdoor=False,
         popularity_tier="A", queue_times_id=None,
     )
     extended = sample_attractions + [unmapped]

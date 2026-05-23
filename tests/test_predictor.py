@@ -8,7 +8,7 @@ def make_attraction(tier="S", outdoor=False):
     return Attraction(
         id="x", name="X", scrape_key="X", area="ファンタジーランド",
         lat=35.63, lng=139.88, experience_time_min=5, queue_walk_min=3,
-        default_priority=5, dpa_eligible=False,
+        default_priority=5,
         requires_reservation=False, outdoor=outdoor,
         popularity_tier=tier,
     )
