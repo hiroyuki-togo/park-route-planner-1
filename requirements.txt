@@ -1,0 +1,6 @@
+streamlit>=1.36
+requests>=2.32
+pydantic>=2.7
+geopy>=2.4
+pandas>=2.2
+streamlit-local-storage>=0.0.21
