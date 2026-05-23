@@ -20,6 +20,16 @@ st.set_page_config(page_title="TDL Route Planner", page_icon="🎢", layout="cen
 inject_theme()
 
 
+def _now_jst() -> datetime:
+    """JST naive な現在時刻を返す。
+
+    Streamlit Cloud は UTC 固定で動作するため `datetime.now()` を直接使うと
+    9 時間ズレた値が返る。アプリ内の他の datetime（snapshot.timestamp 等）は
+    全て JST naive に揃えてあるので、それと整合させるため明示変換する。
+    """
+    return datetime.utcnow() + timedelta(hours=9)
+
+
 @st.cache_data
 def load_attractions() -> list[Attraction]:
     raw = json.loads(Path("data/attractions.json").read_text())
@@ -178,7 +188,7 @@ def main() -> None:
         # sim モードのデフォルトは 9:00、当日モードは現在時刻
         default_time = (
             time(9, 0) if is_sim_mode
-            else datetime.now().time().replace(second=0, microsecond=0)
+            else _now_jst().time().replace(second=0, microsecond=0)
         )
         now_token = st.session_state.get("now_token", 0)
         current_time_val = st.time_input(
@@ -451,7 +461,7 @@ def main() -> None:
                         datetime.combine(route_date, current_time_val),
                     )
                     st.session_state.last_snapshot = snap
-                    st.session_state.last_fetch_time = datetime.now()
+                    st.session_state.last_fetch_time = _now_jst()
                     st.success(
                         f"合成 snapshot 生成：{sim_date.isoformat()} {current_time_val.strftime('%H:%M')} スタート想定"
                     )
@@ -469,7 +479,7 @@ def main() -> None:
                             datetime.combine(route_date, current_time_val),
                         )
                         st.session_state.last_snapshot = fallback
-                        st.session_state.last_fetch_time = datetime.now()
+                        st.session_state.last_fetch_time = _now_jst()
                         st.warning(
                             f"⚠️ 取得 snapshot は {snap.timestamp.strftime('%H:%M')} の営業時間外データ"
                             f"（Queue-Times は閉園後 / 開園前は全件 closed を返すため信頼不可）。"
@@ -478,10 +488,10 @@ def main() -> None:
                         )
                     elif snap:
                         st.session_state.last_snapshot = snap
-                        st.session_state.last_fetch_time = datetime.now()
+                        st.session_state.last_fetch_time = _now_jst()
                         # snapshot.timestamp は scraper 側で既に JST naive に変換済み
                         age_min = int(
-                            (datetime.now() - snap.timestamp).total_seconds() / 60
+                            (_now_jst() - snap.timestamp).total_seconds() / 60
                         )
                         if age_min > 30:
                             st.warning(
@@ -502,7 +512,7 @@ def main() -> None:
                             datetime.combine(route_date, current_time_val),
                         )
                         st.session_state.last_snapshot = fallback
-                        st.session_state.last_fetch_time = datetime.now()
+                        st.session_state.last_fetch_time = _now_jst()
                         st.warning(
                             "Queue-Times に接続できませんでした。"
                             f"シミュレーション値（{current_time_val.strftime('%H:%M')} スタート想定）で代替します。"
