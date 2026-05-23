@@ -519,7 +519,7 @@ with st.expander("DPA 入力", ...):
 ```
 ↓
 ```
-with st.expander("予約済み枠（DPA / プライオリティパス）入力", ...):
+with st.expander("予約済み枠（DPA / プライオリティパス）", ...):
 ```
 
 正確な文言は現状の expander 行の状況に合わせる（既存ラベル末尾の `expanded=False` などはそのまま）。
