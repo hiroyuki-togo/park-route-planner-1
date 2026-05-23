@@ -12,7 +12,7 @@ def test_attraction_valid():
         id="pooh", name="プーさんのハニーハント", scrape_key="プーさん",
         area="ファンタジーランド", lat=35.63, lng=139.88,
         experience_time_min=5, queue_walk_min=3,
-        default_priority=4, dpa_eligible=True,
+        default_priority=4, pass_type="dpa",
         requires_reservation=False, outdoor=False,
         popularity_tier="S",
     )
@@ -98,7 +98,7 @@ def test_attraction_tier_validation():
         Attraction(
             id="x", name="x", scrape_key="x", area="x",
             lat=0, lng=0, experience_time_min=1, queue_walk_min=1,
-            default_priority=1, dpa_eligible=False,
+            default_priority=1,
             requires_reservation=False, outdoor=False,
             popularity_tier="X",  # invalid
         )
