@@ -149,6 +149,39 @@
 
 ---
 
+### シミュレーションモード時刻軸拡張（sim ≒ 当日モードの合成版） — 5/23 完了
+
+東郷さん要求「シミュにも時間の概念を入れたい」を受けて、sim モードを「9:00 開園固定」から「任意時刻スタート + 時刻別補正された合成 snapshot」に拡張。あわせて「現在時刻 / 現在位置 / 乗った」UI を sim にも開放し、当日モードとの UI 差分を最小化（is_sim_mode 分岐が 3 段削減）。
+
+仕様: [docs/superpowers/specs/2026-05-23-sim-time-axis-design.md](docs/superpowers/specs/2026-05-23-sim-time-axis-design.md)
+プラン: [docs/superpowers/plans/2026-05-23-sim-time-axis.md](docs/superpowers/plans/2026-05-23-sim-time-axis.md)
+
+Subagent-Driven Development で 9 Task を実装。各タスクで spec 適合性レビュー + コード品質レビューの 2 段階を通過。テスト 64 → **69 PASS**。
+
+| Task | コミット | 内容 |
+|---|---|---|
+| 1 | `d2fa4ae` | `TIME_FACTOR_FLOOR = 0.9` / `TIME_FACTOR_AVG_EFFECTIVE = 13.1/12` 追加 |
+| 2 | `3a3f9e9` | `build_snapshot_at(attractions, target_datetime)` 実装（β 計算式: `wait = baseline × max(0.9, factor) / 1.09`）|
+| 3 | `abd0b4e` | 既存 6 テストを `test_snapshot_at_*` に置換 + 期待値を β 計算式に合わせる |
+| 4 | `637a68e` | 新規 3 テスト（時刻別 / 下限保護 / null フォールバック） |
+| 5 | `b29e93e` | `test_simulate_then_route_at_arbitrary_time` に 11:00 スタート版で書き換え |
+| 6 | `09dce50` | app.py の `build_opening_snapshot` 呼び出し 2 箇所を `build_snapshot_at(attractions, datetime.combine(route_date, current_time_val))` に置換（UI 変更なし）|
+| 7a | `38ed43e` | sim mode で「現在時刻 / 現在位置」UI 開放 + 開園前/閉園後警告を sim にも適用 + "9:00 開園想定" メッセージを動的化 |
+| 7b | `61b20c1` | sim mode で「乗った」UI 開放（3 カラム化）+ router 呼び出しの `visited` を sim でも渡す |
+| 7b-fix | `b8fbaa7` | mode 切替時に `visited_attractions` をクリア（sim/live で意味論が違うため、ゾンビ参照防止）|
+| 8 | `2dbc3f0` | 旧 `build_opening_snapshot` を `src/simulator.py` から削除（grep 0 件確認） |
+| 9 | `4917711` / `f5cedec` | PROGRESS.md / lessons.md 更新 + scripts docstring 修正 + ヘッダー日付・テスト数の bump |
+
+**設計の主要判断**:
+
+1. **役割重複を allow する判断**（lessons #18 への反転追記）: sim/live モードを「データソースだけが違う双子」として統合。旧仕様の「役割を分けるために sim を制限する」より、「重複を allow して UI コード分岐を削減する」を採用
+2. **β 計算式の下限 0.9**: `effective_factor = max(0.9, get_time_factor(hour))` で朝・夜の極端を抑える。「営業時間中、最も空いてる時間帯でも avg の 82% は並ぶ」という観察則の実装
+3. **wait_min 検算例**: 美女と野獣 (avg=74) → 9:00 で 61 分 / 11:00 で 88 分 / 15:00 で 81 分 / 20:00 で 61 分（下限保護）
+
+**副作用**: 現状 sim mode（9:00 開園想定）の予測値が変わる（美女と野獣 74 → 61 分）。これは「朝開園直後は実際少し空いている」を反映する仕様変更で、5/24 リハで Queue-Times 実値と比較して下限値（0.9）を微調整する余地あり。
+
+---
+
 ### デザイン適用 + UX 微改善（Theme Park Warm v2 / v2.1 + 推奨 5 件） — 5/21 完了
 
 東郷さん事前準備の `theme.py` v2（CSS インジェクション + ルートカードレンダラ）と `.streamlit/config.toml` を取り込み、Streamlit デフォルト UI を「**Theme Park Warm**」（アイボリー背景 + 暖色オレンジ）へ全面移行。同セッション内で論点 14 件を整理し、推奨実装枠 5 件を全て適用。
@@ -399,26 +432,53 @@ JSON エンドポイント：`https://www.tokyodisneyresort.jp/_/realtime/tdl_at
 ## 8. 次セッション開始時のおすすめプロンプト
 
 ```
-ディズニーランドのルート生成ツール、機能完全＆ライブ取得復活（Queue-Times.com 採用）まで完了。
-テスト 63/63 PASS、Theme Park Warm UI 適用済。残りは Phase 7（デプロイ）のみ。
+ディズニーランドのルート生成ツール、機能完全 + sim 時刻軸拡張まで完了。
+テスト 69/69 PASS、Theme Park Warm UI 適用済。残りは Phase 7（デプロイ）のみ。
 
-PROGRESS.md §3 A の 3 タスク（Task 26 = requirements.txt + README / Task 27 = GitHub repo + Streamlit Cloud / Task 28 = デプロイ後動作確認）の手順を整理してください。GitHub の用語（PR / branch / remote / fork 等）は東郷さんが不慣れなので省略せず展開する（lessons #4）。
+来園日は 2026-05-25（月）。今日は 5/24（土曜）。残り 1 日でデプロイ + リハ。
 
-特に Streamlit Cloud のサーバ（米国/アジア IP）から Queue-Times.com が叩けるかは Phase 7 の中で必須検証ポイント。
+着手済みプラン: docs/superpowers/plans/2026-05-23-phase-7-deployment.md
+（Task 26 = requirements.txt + README / Task 27 = GitHub repo + Streamlit Cloud / Task 28 = デプロイ後動作確認）
 
-事前に `.venv/bin/pytest -q` で **63/63 PASS** + Streamlit 起動 → 当日モードで「🔄 待ち時間を取得（Queue-Times 経由）」ボタンが動くこと、フッターに「Powered by Queue-Times.com」が出ること、queue_times_id null の buzz/minnie_style 行に「⚠️ ライブ取得対象外」注記が出ることを目視確認してください。
+事前に東郷さんと合意した方針:
+- リポジトリ名: park-route-planner-1（"-1" の意図は東郷さんに確認）
+- Queue-Times が Cloud IP からブロックされた場合: (a) UA 偽装等 30 分以内の軽い対応まで → ダメなら (c) シミュ妥協
+
+プランをそのまま実行するか、見直しが要るかを確認してから着手してください。
+GitHub の用語（PR / branch / remote / fork 等）は東郷さんが不慣れなので省略せず展開する（lessons #4）。
 ```
 
 ### 引き継ぎチェックリスト（次セッション冒頭で確認すること）
 
-- [ ] `git log --oneline -15` で 5/22 の Queue-Times 関連コミット 5 個 + 5/22 ルートカード 2 件 + 5/21 デザイン 3 件が見えること
+#### A. 環境・コード状態の健全性
+
+- [ ] `git log --oneline -15` で 5/23 の sim 時刻軸関連コミット 12 個（`d2fa4ae` Task 1 から `f5cedec` Task 9 fix まで）が見えること
 - [ ] `git status` でクリーン
-- [ ] `.venv/bin/pytest -q` で **64 passed**
-- [ ] `.venv/bin/streamlit run app.py` で UI が起動し、当日モードの「🔄 待ち時間を取得（Queue-Times 経由）」で実データ取得できること（5/22 朝で美女と野獣 140 分・ベイマックス 120 分等）
-- [ ] フッターに「Powered by [Queue-Times.com](https://queue-times.com/)」表示
-- [ ] アトラクション設定の buzz / minnie_style 行に「⚠️ ライブ取得対象外」注記
-- [ ] CLAUDE.md / lessons.md（**#22〜#24** を含む）/ PROGRESS.md §2 末尾「ライブ取得復活」セクション + §3 A を読んで、Phase 7 の主題と Queue-Times 検証ポイントを把握
-- [ ] **Phase 7 着手前**に Task 26-28 の手順をプレゼンしてから実装に入る（いきなり requirements.txt や README を書き始めない）
+- [ ] `.venv/bin/pytest -q` で **69 passed**
+- [ ] `lsof -i :8501` / `lsof -i :8502` で前回セッションの Streamlit プロセスが残っていないか確認（残っていれば必要に応じて kill）
+
+#### B. ドキュメントの把握
+
+- [ ] [CLAUDE.md](CLAUDE.md) を読む
+- [ ] [lessons.md](lessons.md) を読む（特に #4 GitHub 用語、#22〜#24 Queue-Times 経緯、#18 役割重複の追記）
+- [ ] PROGRESS.md §1（現在のステータス、5/23 セッション末尾の追記含む） + §3 A（Phase 7 主題）を読む
+- [ ] [docs/superpowers/specs/2026-05-23-sim-time-axis-design.md](docs/superpowers/specs/2026-05-23-sim-time-axis-design.md)（直近実装の仕様）を読む
+- [ ] [docs/superpowers/plans/2026-05-23-phase-7-deployment.md](docs/superpowers/plans/2026-05-23-phase-7-deployment.md)（次に実行するプラン）を読む
+
+#### C. アプリ動作の最終確認（5/24 当日リハ兼）
+
+- [ ] `.venv/bin/streamlit run app.py` で UI 起動
+- [ ] **当日モード**で「🔄 待ち時間を取得（Queue-Times 経由）」→ 5/24 当日の実値が出る
+- [ ] **シミュモード**で時刻を 11:00 に変更 → wait_min が 9:00 より明らかに大きい（時刻補正が効いている証拠）
+- [ ] sim ↔ 当日切替で「乗った」がクリアされる
+- [ ] フッターに「Powered by Queue-Times.com」表示
+- [ ] アトラクション設定の minnie_style 行に「⚠️ ライブ取得対象外」注記
+
+#### D. Phase 7 着手前の判断
+
+- [ ] Phase 7 プラン（plans/2026-05-23-phase-7-deployment.md）を東郷さんと一緒に再確認
+- [ ] 「-1」サフィックスの意図確認 → リポジトリ名を確定
+- [ ] **いきなり requirements.txt や README を書き始めない**（プラン手順を再プレゼンしてから着手）
 
 ### 仕様見直しを進めるときの注意
 
