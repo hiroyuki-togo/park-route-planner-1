@@ -1,5 +1,5 @@
 """シミュレーションモード（合成 snapshot 生成）のテスト。"""
-from datetime import date, datetime, time
+from datetime import datetime
 
 from src.constants import OPENING_BASE_WAIT_BY_TIER
 from src.models import Attraction, WaitTimeSnapshot
@@ -127,13 +127,13 @@ def test_snapshot_at_avg_null_uses_tier_base_with_multiplier():
     assert snap.data[0].wait_min == round(OPENING_BASE_WAIT_BY_TIER["S"] * (1.3 / (13.1 / 12)))
 
 
-def test_simulate_then_route(sample_attractions):
-    """合成 snapshot を router に流して、開園想定で全体ルートが返ることを確認。"""
-    target_date = date(2026, 5, 25)
-    snap = build_snapshot_at(sample_attractions, datetime(2026, 5, 25, 9, 0))
+def test_simulate_then_route_at_arbitrary_time(sample_attractions):
+    """build_snapshot_at で 11:00 スタートの sim を作り、router に流して動くことを確認。"""
+    target_dt = datetime(2026, 5, 25, 11, 0)
+    snap = build_snapshot_at(sample_attractions, target_dt)
     constraints = RouteConstraints(
-        start_time=datetime.combine(target_date, time(9, 0)),
-        close_time=datetime.combine(target_date, time(21, 0)),
+        start_time=target_dt,
+        close_time=datetime(2026, 5, 25, 21, 0),
         entrance=(35.6329, 139.8804),
         fixed_blocks=[],
     )
@@ -144,7 +144,11 @@ def test_simulate_then_route(sample_attractions):
         priorities={"pooh": 5, "big_thunder": 4, "beauty_and_beast": 5},
         must_visits=set(),
     )
+    # 11:00 スタートでも pooh と big_thunder は訪問できる
     visited = [s.id for s in result.steps if s.type == "attraction"]
-    # operating 扱いなので候補プールから除外されない。pooh と big_thunder は訪問できる。
     assert "pooh" in visited
     assert "big_thunder" in visited
+    # 最初の step は 11:00 以降に開始
+    if result.steps:
+        first_step = result.steps[0]
+        assert first_step.arrive >= target_dt
