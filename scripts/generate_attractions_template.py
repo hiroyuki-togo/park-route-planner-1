@@ -1,7 +1,15 @@
 """TDL アトラクションマスタの雛形を生成する。
 lat/lng は null で出力、後で人力で埋める。
-pass_type は "dpa" / "priority" / None のいずれか。雛形は基本 None で、DPA 対象は "dpa" を明示する。"""
+pass_type は "dpa" / "priority" / None のいずれか。雛形は基本 None で、DPA 対象は "dpa" を明示する。
+
+⚠️ 再実行禁止: data/attractions.json が既に存在する場合は abort する。
+  既存のマスタには lat/lng / queue_times_id / avg_wait_min が手動投入されており、
+  かつ priority 系アトラクションの最新マッピング（pooh / monsters_inc 等）も
+  反映されているため、誤って再実行すると現行マスタが壊滅する。
+  どうしても上書きしたい場合は環境変数 FORCE_OVERWRITE=1 を指定。"""
 import json
+import os
+import sys
 from pathlib import Path
 
 
@@ -64,6 +72,11 @@ def main():
         ],
     }
     out = Path("data/attractions.json")
+    if out.exists() and os.environ.get("FORCE_OVERWRITE") != "1":
+        sys.exit(
+            f"❌ {out} が既に存在します。雛形再生成は現行マスタを壊滅させるため abort します。\n"
+            f"   どうしても上書きしたい場合: FORCE_OVERWRITE=1 python {sys.argv[0]}"
+        )
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     print(f"Wrote {len(data['attractions'])} attractions to {out}")
