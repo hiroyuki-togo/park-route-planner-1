@@ -1,7 +1,7 @@
 """Queue-Times の stats ページから全期間平均待ち時間をスクレイピングし、
 data/attractions.json の各エントリに `avg_wait_min` を埋め込むスクリプト。
 
-シミュレーションモード（build_opening_snapshot）の精度向上に使う。
+シミュレーションモード（build_snapshot_at）の精度向上に使う。
 年に一度くらいの頻度で再実行する想定（Queue-Times の集計が更新されるため）。
 
 Usage:

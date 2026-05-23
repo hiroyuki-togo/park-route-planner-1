@@ -28,6 +28,11 @@
 
 今日発覚 → 解決した最大トピック: **アプリ史上「ライブ取得が動いている」と認識していたが、実態は dummy snapshot にずっとフォールバックしていただけ**（lessons #22）。原因は OLC 公式 API が WAF で curl/requests を完全黙殺する仕様変更（lessons #23）。第三者の集約 API **Queue-Times.com** に切り替えて 5 分毎更新の実データ取得を実現（lessons #24）。
 
+**5/23 セッション**: シミュレーションモードの時刻軸拡張を実装（Phase 7 デプロイ前の追加機能、東郷さん要求）。
+任意時刻スタート + 「現在時刻 / 現在位置 / 乗った」UI を sim でも開放、wait_min は β 計算式（下限 0.9）で時刻補正。
+詳細は [docs/superpowers/specs/2026-05-23-sim-time-axis-design.md](docs/superpowers/specs/2026-05-23-sim-time-axis-design.md) と [plans/2026-05-23-sim-time-axis.md](docs/superpowers/plans/2026-05-23-sim-time-axis.md)。
+テスト 64 → 69 PASS。次は Phase 7（デプロイ）。
+
 残るは **Phase 7（デプロイ、5/23-24 目標）**。
 
 ---
@@ -187,6 +192,9 @@
 次回（5/22 以降）は **Phase 7（デプロイ）** が主題。並行で 5/18 以降に公式から営業時間が出ていれば B1/B4 を追従、5/23-24 で D1/D2（リハ準備）。
 
 #### A. Phase 7（デプロイ）— 主題、推奨実施日 5/22-23
+
+**前提**: 5/23 中に「シミュ時刻軸拡張」が完了済（[plans/2026-05-23-sim-time-axis.md](docs/superpowers/plans/2026-05-23-sim-time-axis.md)）。
+このタスクはその次のステップとして実施。
 
 プラン Task 26-28：
 
