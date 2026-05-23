@@ -66,6 +66,19 @@ def test_opening_snapshot_uses_avg_wait_when_present():
     assert by_name["No Avg"].wait_min == OPENING_BASE_WAIT_BY_TIER["C"]
 
 
+def test_snapshot_at_basic_signature(sample_attractions):
+    """build_snapshot_at(attractions, datetime) が WaitTimeSnapshot を返す。"""
+    from src.simulator import build_snapshot_at
+    target_dt = datetime(2026, 5, 25, 9, 0)
+    snap = build_snapshot_at(sample_attractions, target_dt)
+
+    assert isinstance(snap, WaitTimeSnapshot)
+    assert snap.timestamp == target_dt
+    assert snap.park == "TDL"
+    assert len(snap.data) == len(sample_attractions)
+    assert all(e.status == "operating" for e in snap.data)
+
+
 def test_simulate_then_route(sample_attractions):
     """合成 snapshot を router に流して、開園想定で全体ルートが返ることを確認。"""
     target_date = date(2026, 5, 25)
