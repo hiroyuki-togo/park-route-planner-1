@@ -45,3 +45,15 @@ def test_main_street_pairs_is_frozenset():
     for pair in MAIN_STREET_BLOCKING_PAIRS:
         assert isinstance(pair, frozenset)
         assert len(pair) == 2
+
+
+def test_time_factor_floor_value():
+    from src.constants import TIME_FACTOR_FLOOR
+    assert TIME_FACTOR_FLOOR == 0.9
+
+
+def test_time_factor_avg_effective_value():
+    from src.constants import TIME_FACTOR_AVG_EFFECTIVE
+    # (0.9 + 0.9 + 1.3*3 + 1.2*3 + 1.0*2 + 0.9*2) / 12 = 13.1/12 ≈ 1.0917
+    assert TIME_FACTOR_AVG_EFFECTIVE == 13.1 / 12
+    assert 1.09 < TIME_FACTOR_AVG_EFFECTIVE < 1.10
