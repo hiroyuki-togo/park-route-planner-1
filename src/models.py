@@ -1,6 +1,6 @@
 """Pydantic モデル定義。"""
 from datetime import datetime, time
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -23,7 +23,7 @@ class Attraction(BaseModel):
     experience_time_min: int = Field(ge=0)
     queue_walk_min: int = Field(ge=0, default=0)
     default_priority: int = Field(ge=0, le=5)
-    dpa_eligible: bool = False
+    pass_type: Optional[Literal["dpa", "priority"]] = None
     requires_reservation: bool = False
     outdoor: bool = False
     popularity_tier: PopularityTier

@@ -19,6 +19,79 @@ def test_attraction_valid():
     assert a.id == "pooh"
 
 
+def test_attraction_pass_type_dpa():
+    attr = Attraction(
+        id="test_dpa",
+        name="Test DPA",
+        scrape_key="Test",
+        area="Test Area",
+        lat=35.63,
+        lng=139.88,
+        experience_time_min=5,
+        queue_walk_min=2,
+        default_priority=3,
+        pass_type="dpa",
+        outdoor=False,
+        popularity_tier="A",
+    )
+    assert attr.pass_type == "dpa"
+
+
+def test_attraction_pass_type_priority():
+    attr = Attraction(
+        id="test_priority",
+        name="Test Priority",
+        scrape_key="Test",
+        area="Test Area",
+        lat=35.63,
+        lng=139.88,
+        experience_time_min=5,
+        queue_walk_min=2,
+        default_priority=3,
+        pass_type="priority",
+        outdoor=False,
+        popularity_tier="A",
+    )
+    assert attr.pass_type == "priority"
+
+
+def test_attraction_pass_type_default_none():
+    attr = Attraction(
+        id="test_none",
+        name="Test None",
+        scrape_key="Test",
+        area="Test Area",
+        lat=35.63,
+        lng=139.88,
+        experience_time_min=5,
+        queue_walk_min=2,
+        default_priority=3,
+        outdoor=False,
+        popularity_tier="A",
+    )
+    assert attr.pass_type is None
+
+
+def test_attraction_pass_type_invalid_rejected():
+    import pytest
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        Attraction(
+            id="test_invalid",
+            name="Test Invalid",
+            scrape_key="Test",
+            area="Test Area",
+            lat=35.63,
+            lng=139.88,
+            experience_time_min=5,
+            queue_walk_min=2,
+            default_priority=3,
+            pass_type="freepass",
+            outdoor=False,
+            popularity_tier="A",
+        )
+
+
 def test_attraction_tier_validation():
     import pydantic
     with pytest.raises(pydantic.ValidationError):
