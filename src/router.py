@@ -110,7 +110,14 @@ def generate_route(
     current_location = constraints.entrance
     current_area: str | None = None
     visited = set(visited) if visited else set()
-    must_remaining = set(must_visits) - visited
+    # 予約済み枠（DPA / プライオリティ）で乗る予定の attraction_id は
+    # 通常候補からも must からも除外。これをしないと「必ず乗る + 予約あり」のとき
+    # 通常候補として早朝に消化された後、予約時刻にも消化される二重バグになる。
+    reserved_ids = {
+        b.attraction_id for b in constraints.fixed_blocks
+        if b.type == "dpa" and b.attraction_id
+    }
+    must_remaining = set(must_visits) - visited - reserved_ids
     steps: list[RouteStep] = []
     warnings: list[Warning] = []
     # start_time より完全に過去のブロックは消化対象外
@@ -142,7 +149,7 @@ def generate_route(
             continue
 
         # (B) 通常候補
-        candidates = _candidate_pool(attractions, snapshot, visited, priorities)
+        candidates = _candidate_pool(attractions, snapshot, visited | reserved_ids, priorities)
         if not candidates:
             # 候補なしでも固定ブロックが残っていれば、その時刻まで待機して消化
             if blocks:

@@ -102,6 +102,42 @@ def test_dpa_block_visits_reserved_attraction(sample_attractions, operating_snap
     assert "beauty_and_beast" not in result.unvisited_musts
 
 
+def test_must_visit_with_reserved_block_no_duplicate(sample_attractions, operating_snapshot):
+    """必ず乗る + DPA / プライオリティ予約済み枠の組み合わせで、
+    pooh が通常候補と予約枠の両方で消化される二重消化バグ防止
+    （東郷さん 5/23 夜発見、コミット f9c0520 で表示は直したが消化ロジック未修正）。"""
+    pooh = next(a for a in sample_attractions if a.id == "pooh")
+    constraints = RouteConstraints(
+        start_time=datetime(2026, 5, 25, 9, 0),
+        close_time=datetime(2026, 5, 25, 21, 0),
+        entrance=(35.6329, 139.8804),
+        fixed_blocks=[
+            FixedBlock(
+                type="dpa",
+                start=datetime(2026, 5, 25, 10, 30),
+                end=datetime(2026, 5, 25, 11, 30),
+                label="プライオリティ: プーさんのハニーハント",
+                attraction_id="pooh",
+                location=(pooh.lat, pooh.lng),
+            ),
+        ],
+    )
+    result = generate_route(
+        snapshot=operating_snapshot,
+        attractions=sample_attractions,
+        constraints=constraints,
+        priorities={"pooh": 5, "big_thunder": 5},
+        must_visits={"pooh"},
+    )
+    pooh_steps = [s for s in result.steps if s.id == "pooh"]
+    assert len(pooh_steps) == 1, (
+        f"pooh が {len(pooh_steps)} 回登場している（二重消化バグ）。"
+        f"steps: {[(s.type, s.arrive.strftime('%H:%M')) for s in result.steps]}"
+    )
+    assert pooh_steps[0].type == "dpa"
+    assert "pooh" not in result.unvisited_musts
+
+
 def test_meal_block_anchors_location(sample_attractions, operating_snapshot):
     """食事ブロックに location があれば、ブロック終了後の現在地が更新される。
 
