@@ -216,3 +216,27 @@ Phase 6 以降ずっと「ライブ待ち時間取得が動いている」と認
 4. `git commit` → 残りの hunks は次の `git add file` で自然に staging される
 
 **学び**：**git の index と worktree を分離した操作**を覚えておくと、複数論点が 1 ファイルに同居しても worktree を壊さず commit を分割できる。Claude Code 環境では「破壊的に見える操作」（`git checkout`、`reset --hard` 等）が auto-classifier に弾かれるリスクがあるので、**index への部分パッチ → 残りを add** が最も安全なパターン。今回は worktree が完全に正しい最終状態のまま、3 コミットに綺麗に分割できた（`3f6efb8 / bc42e73 / ea41e0b`）。
+
+---
+
+### 28. マスタデータの年次見直しを怠ると、データソース API が変わる前から内部矛盾でルートが歪む
+
+プライオリティパス制度（2024 中盤導入）から 1 年以上経過していたが、`data/attractions.json` の `dpa_eligible` フラグは旧制度（pooh / monsters_inc を DPA 扱い）のまま固まっていた。Queue-Times.com ライブ取得が動き始めた 5/22 セッション後も気付かず、東郷さんから「プライオリティパスもあるよね？」と指摘されて初めて発見。ライブ取得が動いていることと、そのデータを使うロジック（DPA 扱いの分岐）が現実と整合していることは別問題。
+
+**学び**: 年次でマスタの全フィールドを公式情報とクロスチェックする手順を、Phase 7 後のリハ準備（D2: requires_reservation 再確認）と合わせて運用に組み込む。「動いている」と「正しい」は別物（lessons #22 の延長）。データソース側の変化だけでなく、**現実世界側のルール変更**（制度刷新・アトラクション建て替え）も能動的に追う。
+
+---
+
+### 29. 後方互換シムは個人ツールでは負債になる
+
+dpa_eligible → pass_type 移行の際、後方互換のための `dpa_eligible` property シム / alias / deprecation warning は **一切置かずに一気に切り替えた**。理由: (a) このツールのデータソース・呼び出し元は全て自分の管理下、(b) 古いコードが動き続けると気付かないまま不整合を維持するリスクの方が大きい（lessons #22 / #27 と整合）。
+
+一般論として後方互換は重要だが、個人ツールでは **「壊れたら気付ける」方が「黙って動く」より優先順位が高い**。シムを置くと「移行漏れの呼び出し箇所」が silent に旧挙動で動き続け、将来「なんで priority のはずの pooh が DPA 扱いになってるんだ？」と再発する。一気切り替え + テスト全 PASS で漏れを保証する方が、個人ツールの規模感では ROI が高い。
+
+---
+
+### 30. Pydantic v2 の extra="ignore" 既定挙動による silent-drop
+
+`Attraction(dpa_eligible=True)` が Pydantic v2 では unknown kwarg として silently drop されることに、Task 1 完了時の code review で気付いた。テストを走らせても引っかからない（kwarg は単に無視されてデフォルト値が入る）。fixture リファクタ時の見えない事故源で、今回も「移行後の fixture で `dpa_eligible=True` の指定が残っていても test は通ってしまう」状態だった。
+
+**学び**: `model_config = ConfigDict(extra="forbid")` を導入すれば construction 時に `ValidationError` で即気付ける。今回は scope 外として見送ったが、PROGRESS.md §3 B K-C で次セッション以降の課題として記録。同様の事故防止策として、移行系 refactor では **「旧フィールド名の文字列 grep」を完了条件に必ず入れる**（今回は実施したのが救い）。

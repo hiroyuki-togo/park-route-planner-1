@@ -2,16 +2,16 @@
 
 > 次セッションの Claude Code が状況を即時把握するための引き継ぎファイル。
 
-**最終更新**: 2026-05-23（sim 時刻軸拡張完了後）
+**最終更新**: 2026-05-23（pass_type schema refactor 完了後）
 **来園日**: 2026-05-25（月）
-**残り日数**: 3 日
+**残り日数**: 2 日
 
 ---
 
 ## 1. 現在のステータス
 
-**Phase 1〜6 完了 + シミュ + 当日モード実運用 + デザイン適用 + UX 微改善 + ライブ取得復活 + 後続改善 完了**。
-**テスト 69/69 PASS**、Streamlit 起動確認済 + 東郷さん目視確認済（複数回）。
+**Phase 1〜6 完了 + シミュ + 当日モード実運用 + デザイン適用 + UX 微改善 + ライブ取得復活 + 後続改善 + pass_type refactor 完了**。
+**テスト 77/77 PASS**、Streamlit 起動確認済 + 東郷さん目視確認済（複数回）。
 
 5/22 1 日で本日累計 **13 コミット** 進めた:
 
@@ -31,7 +31,12 @@
 **5/23 セッション**: シミュレーションモードの時刻軸拡張を実装（Phase 7 デプロイ前の追加機能、東郷さん要求）。
 任意時刻スタート + 「現在時刻 / 現在位置 / 乗った」UI を sim でも開放、wait_min は β 計算式（下限 0.9）で時刻補正。
 詳細は [docs/superpowers/specs/2026-05-23-sim-time-axis-design.md](docs/superpowers/specs/2026-05-23-sim-time-axis-design.md) と [plans/2026-05-23-sim-time-axis.md](docs/superpowers/plans/2026-05-23-sim-time-axis.md)。
-テスト 64 → 69 PASS。次は Phase 7（デプロイ）。
+テスト 64 → 69 PASS。
+
+同日 **pass_type schema refactor も完了**（東郷さん指摘「プライオリティパスもあるよね？」起点）。プライオリティパス制度（2024 導入）への未対応を解消し、`Attraction.dpa_eligible: bool` → `pass_type: Literal["dpa","priority"] | None` に schema 変更。
+data/attractions.json 既存 6 件を正しい制度に修正（pooh / monsters_inc は 2024 時点で priority、美女と野獣 / baymax は dpa、baymax は requires_reservation=true）+ スター・ツアーズ / スプラッシュマウンテン 2 件をマスタ追加（21 → 23 件）。
+仕様: [docs/superpowers/specs/2026-05-23-pass-type-schema-refactor-design.md](docs/superpowers/specs/2026-05-23-pass-type-schema-refactor-design.md) / プラン: [plans/2026-05-23-pass-type-schema-refactor.md](docs/superpowers/plans/2026-05-23-pass-type-schema-refactor.md)。
+テスト 69 → **77 PASS**。次は Phase 7（デプロイ）。
 
 残るは **Phase 7（デプロイ、5/23-24 目標）**。
 
@@ -182,6 +187,28 @@ Subagent-Driven Development で 9 Task を実装。各タスクで spec 適合�
 
 ---
 
+### pass_type schema refactor（DPA / プライオリティパス分離 + マスタ拡充） — 5/23 完了
+
+東郷さん指摘「プライオリティパスもあるよね？」起点。プライオリティパス制度（2024 中盤導入）から 1 年以上経過していたが、マスタの `dpa_eligible: bool` フラグが旧 DPA 制度のまま固まっていた。あわせてスター・ツアーズ / スプラッシュマウンテンが master 未収録だったことも判明し、本 refactor で同時解消。
+
+仕様: [docs/superpowers/specs/2026-05-23-pass-type-schema-refactor-design.md](docs/superpowers/specs/2026-05-23-pass-type-schema-refactor-design.md)
+プラン: [docs/superpowers/plans/2026-05-23-pass-type-schema-refactor.md](docs/superpowers/plans/2026-05-23-pass-type-schema-refactor.md)
+
+| Task | コミット | 内容 |
+|---|---|---|
+| 1 + I1 fix | `49233a9` / `3d0ab74` | models.py: dpa_eligible → pass_type enum、テスト 4 件追加 |
+| 2 + M1 fix | `dcabc8b` / `08be555` | data/attractions.json 既存 6 件修正（baymax requires_reservation: true 含む） |
+| 3 + I-1 fix | `1f41609` / `7242768` | fixture / app.py / scripts の dpa_eligible 全置換 + generate_attractions_template に safety guard |
+| 4 | `9cf9efd` | Queue-Times.com ID lookup スクリプト（star_tours=8015, splash_mountain=7996） |
+| 5 | `3878eda` | star_tours / splash_mountain をマスタ追加、整合性テスト 4 件追加 |
+| 6 | `09240f9` | app.py UI 更新（expander ラベル / 選択肢サフィックス） |
+| 7 | (このコミット) | PROGRESS.md / lessons.md 更新 |
+
+テスト 69 → **77 PASS**。マスタは 21 → 23 件、pass_type 内訳は DPA=2 件（美女と野獣 / baymax）/ priority=4 件（pooh / monsters_inc / star_tours / splash_mountain）/ なし=17 件。
+後方互換シムは置かずに一気に切り替え（lessons #29）。
+
+---
+
 ### デザイン適用 + UX 微改善（Theme Park Warm v2 / v2.1 + 推奨 5 件） — 5/21 完了
 
 東郷さん事前準備の `theme.py` v2（CSS インジェクション + ルートカードレンダラ）と `.streamlit/config.toml` を取り込み、Streamlit デフォルト UI を「**Theme Park Warm**」（アイボリー背景 + 暖色オレンジ）へ全面移行。同セッション内で論点 14 件を整理し、推奨実装枠 5 件を全て適用。
@@ -219,17 +246,17 @@ Subagent-Driven Development で 9 Task を実装。各タスクで spec 適合�
 
 ## 3. 次にやること
 
-### 🟢 次回のモード：**Phase 7（デプロイ）+ 情報待ち追従**
+### 🟢 次回のモード：**Phase 7（デプロイ）**
 
-5/21 セッションで CSS / UX 微改善まで完了。仕様面はほぼ凍結。
-次回（5/22 以降）は **Phase 7（デプロイ）** が主題。並行で 5/18 以降に公式から営業時間が出ていれば B1/B4 を追従、5/23-24 で D1/D2（リハ準備）。
+5/21 で CSS / UX 微改善、5/23 で sim 時刻軸拡張 + pass_type refactor まで完了。仕様面は凍結。
+次回は **Phase 7（デプロイ）のみ** が主題。
 
-#### A. Phase 7（デプロイ）— 主題、推奨実施日 5/22-23
+#### A. Phase 7（デプロイ）— 主題、推奨実施日 5/23-24
 
-**前提**: 5/23 中に「シミュ時刻軸拡張」が完了済（[plans/2026-05-23-sim-time-axis.md](docs/superpowers/plans/2026-05-23-sim-time-axis.md)）。
+**前提**: 5/23 中に「シミュ時刻軸拡張」と「pass_type schema refactor」が完了済。
 このタスクはその次のステップとして実施。
 
-プラン Task 26-28：
+プラン Task 26-28（[plans/2026-05-23-phase-7-deployment.md](docs/superpowers/plans/2026-05-23-phase-7-deployment.md)）:
 
 - **Task 26**：`requirements.txt` 生成（`pyproject.toml` の `[project] dependencies` から書き出し）+ `README.md` 作成（個人学習目的・商用不可を明示）
 - **Task 27**：GitHub リポジトリ作成（東郷さんは GitHub 不慣れなので PR / branch / remote 等の用語は省略しない＝lessons #4）+ Streamlit Community Cloud デプロイ
@@ -237,18 +264,28 @@ Subagent-Driven Development で 9 Task を実装。各タスクで spec 適合�
 
 工数：半日〜1 日想定。
 
-#### B. 情報待ち枠（5/18-24 に着手）
+#### B. 既知の小課題（Phase 7 後に拾う枠）
+
+pass_type refactor の過程で気付いたが本仕様外として据置にしたもの:
+
+| ID | 内容 | 出典 |
+|---|---|---|
+| K-A | 警告メッセージ「DPA を登録してください」が `pass_type=priority` の must アトラクションに対しても出てしまう（文言が pass_type 別になっていない）。Phase 7 後の小修正タスクで拾う | Task 6 後の動作確認 |
+| K-B | 内部 label `"DPA: {name}"`（app.py で DPA 入力済を表示する箇所）も pass_type 別に振り分けると UX 一貫性向上 | Task 6 後の動作確認 |
+| K-C | `Attraction` モデルに `model_config = ConfigDict(extra="forbid")` を入れると、今回の dpa_eligible silent-drop のような将来の fixture リファクタ事故を防げる（lessons #30） | Task 3 code reviewer M-3 |
+| K-D | star_tours / splash_mountain の `avg_wait_min`（30 / 60 分）は 2026-05-23 時点の推測値。Queue-Times stats API では取得不可だった。来園日リハで実測値に置き換える余地 | Task 5 code reviewer M-3 |
+
+#### C. 情報待ち枠（5/24 リハ時）
 
 | 項目 | 内容 | トリガ |
 |---|---|---|
-| B1 | DPA 未登録警告のサマリ位置（`requires_reservation` が増えたら冒頭サマリ追加） | 5/18 公式営業時間発表 |
 | B4 | 食事ブロック初期値を 5/25 営業時間にハードコード | 5/18 公式営業時間発表 |
-| D2 | `requires_reservation` 対象アトラクション再確認（現状は美女と野獣 1 件のみ） | 5/24 リハ時 |
+| D2 | `requires_reservation` 対象アトラクション再確認（現状は 美女と野獣 + baymax の 2 件） | 5/24 リハ時 |
 | D1 | 朝・昼・夜の固定 dummy snapshot 3 パターンを `data/snapshots/` 外の別ディレクトリに生成 | 5/23-24 リハ準備 |
 
 合計 1〜2 時間想定。
 
-#### C. 据置決定（次セッション以降も触らない）
+#### D. 据置決定（次セッション以降も触らない）
 
 以下 7 件は §2「デザイン適用 + UX 微改善」セクションの「据置」枠で判断済。**再議論禁止**（蒸し返すと CLAUDE.md §4「精度向上のための過剰実装は入れない」と整合性が崩れる）。
 
@@ -350,6 +387,9 @@ A1（スコア式）/ B2（並び順）/ B3（ルート表示の累計時間・�
 - **#19 Streamlit の widget 内部 state は `del session_state[key]` では消えない**（5/21 リセット機能修正時）
 - **#20 CSS 修正が視覚的に効かない時は computed style で実態を確認**（5/21 caret-color 縦線が消えなかった件）
 - **#21 多論点の未コミット作業を分割するには `git apply --cached --unidiff-zero`**（5/21 theme + 5 件を 3 コミットに分割した時）
+- **#28 マスタデータの年次見直しを怠ると、データソース API が変わる前から内部矛盾でルートが歪む**（5/23 pass_type refactor）
+- **#29 後方互換シムは個人ツールでは負債になる**（5/23 pass_type refactor）
+- **#30 Pydantic v2 の extra="ignore" 既定挙動による silent-drop**（5/23 pass_type refactor Task 1 code review）
 
 ### 残り Phase スケジュール
 
@@ -432,10 +472,11 @@ JSON エンドポイント：`https://www.tokyodisneyresort.jp/_/realtime/tdl_at
 ## 8. 次セッション開始時のおすすめプロンプト
 
 ```
-ディズニーランドのルート生成ツール、機能完全 + sim 時刻軸拡張まで完了。
-テスト 69/69 PASS、Theme Park Warm UI 適用済。残りは Phase 7（デプロイ）のみ。
+ディズニーランドのルート生成ツール、機能完全 + sim 時刻軸拡張 + pass_type schema refactor まで完了。
+テスト 77/77 PASS、Theme Park Warm UI 適用済、マスタ 23 件（pass_type: DPA 2 / priority 4）。
+残りは Phase 7（デプロイ）のみ。
 
-来園日は 2026-05-25（月）。今日は 5/24（土曜）。残り 1 日でデプロイ + リハ。
+来園日は 2026-05-25（月）。今日は 5/24（日曜）。残り 1 日でデプロイ + リハ。
 
 着手済みプラン: docs/superpowers/plans/2026-05-23-phase-7-deployment.md
 （Task 26 = requirements.txt + README / Task 27 = GitHub repo + Streamlit Cloud / Task 28 = デプロイ後動作確認）
@@ -443,6 +484,12 @@ JSON エンドポイント：`https://www.tokyodisneyresort.jp/_/realtime/tdl_at
 事前に東郷さんと合意した方針:
 - リポジトリ名: park-route-planner-1（"-1" の意図は東郷さんに確認）
 - Queue-Times が Cloud IP からブロックされた場合: (a) UA 偽装等 30 分以内の軽い対応まで → ダメなら (c) シミュ妥協
+
+Phase 7 後に拾う小課題（PROGRESS.md §3 B 参照）:
+- K-A: 「DPA を登録してください」警告が priority must にも出る
+- K-B: 内部 label "DPA: {name}" の pass_type 別振分け
+- K-C: Attraction モデルに extra="forbid" 検討
+- K-D: star_tours / splash_mountain の avg_wait_min を実測で置換
 
 プランをそのまま実行するか、見直しが要るかを確認してから着手してください。
 GitHub の用語（PR / branch / remote / fork 等）は東郷さんが不慣れなので省略せず展開する（lessons #4）。
@@ -452,9 +499,9 @@ GitHub の用語（PR / branch / remote / fork 等）は東郷さんが不慣れ
 
 #### A. 環境・コード状態の健全性
 
-- [ ] `git log --oneline -15` で 5/23 の sim 時刻軸関連コミット 12 個（`d2fa4ae` Task 1 から `f5cedec` Task 9 fix まで）が見えること
+- [ ] `git log --oneline -20` で 5/23 の sim 時刻軸コミット 12 個 + pass_type refactor コミット 10 個（`49233a9` Task 1 から本タスクの docs commit まで）が見えること
 - [ ] `git status` でクリーン
-- [ ] `.venv/bin/pytest -q` で **69 passed**
+- [ ] `.venv/bin/pytest -q` で **77 passed**
 - [ ] `lsof -i :8501` / `lsof -i :8502` で前回セッションの Streamlit プロセスが残っていないか確認（残っていれば必要に応じて kill）
 
 #### B. ドキュメントの把握
