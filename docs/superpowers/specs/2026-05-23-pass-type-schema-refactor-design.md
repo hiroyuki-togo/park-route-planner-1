@@ -62,7 +62,7 @@ class Attraction(BaseModel):
 | `beauty_and_beast` | `dpa_eligible: true` 削除 → `pass_type: "dpa"`、`requires_reservation: true` は維持 |
 | `pooh` | `dpa_eligible: true` 削除 → `pass_type: "priority"` |
 | `monsters_inc` | `dpa_eligible: true` 削除 → `pass_type: "priority"` |
-| `baymax` | `dpa_eligible: true` 削除 → `pass_type: "dpa"` |
+| `baymax` | `dpa_eligible: true` 削除 → `pass_type: "dpa"`、`requires_reservation: true` を新たに付与 |
 | `big_thunder` | `pass_type: "priority"` 追加 |
 | `haunted_mansion` | `pass_type: "priority"` 追加 |
 
@@ -92,13 +92,19 @@ class Attraction(BaseModel):
 
 ### 3.4 `requires_reservation` フラグの意味
 
-現状 `beauty_and_beast` のみ `true`。これは「DPA を取らないと実質乗れないレベル（待ち 200 分超え常態化）の絶望待ち時間」という意味で、ルーター側で `no_dpa_for_reserved` 警告のトリガーになっている。
+このフラグは「DPA を取らないと実質乗れないレベル（待ち 200 分超え常態化）の絶望待ち時間」という意味で、ルーター側で `no_dpa_for_reserved` 警告のトリガーになっている。
 
-**本仕様での扱い**: 美女と野獣のみ `true` のまま現状維持。
-- ベイマックス / スプラッシュは DPA 対象だが「並べば乗れる」レベル（60〜100 分想定）のため `false`
-- big_thunder / pooh / monsters_inc / haunted_mansion / star_tours はプライオリティ対象（無料）なので構造的に `requires_reservation: true` にはならない
+**本仕様での扱い**:
 
-意味論は維持、対象も維持。
+| アトラクション | requires_reservation | 理由 |
+|---|---|---|
+| `beauty_and_beast` | `true`（現状維持） | TDL ナンバーワン待ち時間アトラクション |
+| `baymax` | **`true` に変更** | 最新人気アトラクション、リニューアル控えで需要集中 |
+| `splash_mountain` | `false`（新規追加） | DPA 対象だが「並べば乗れる」レベル想定 |
+| プライオリティ系 5 件 | `false` | プライオリティパス対象（無料）なので構造的に DPA 必須にはならない |
+| 上記以外 | `false` | フラグなし（現状維持） |
+
+この結果、DPA 対象 3 件（beauty_and_beast / baymax / splash_mountain）のうち、`requires_reservation: true` は 2 件（美女と野獣 + ベイマックス）となる。
 
 ### 3.5 UI 変更（`app.py`）
 
