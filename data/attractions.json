@@ -331,6 +331,40 @@
       "popularity_tier": "C",
       "queue_times_id": 7985,
       "avg_wait_min": 7
+    },
+    {
+      "id": "star_tours",
+      "name": "スター・ツアーズ：ザ・アドベンチャーズ・コンティニュー",
+      "scrape_key": "スター・ツアーズ",
+      "area": "トゥモローランド",
+      "lat": 35.63347071741284,
+      "lng": 139.87831947363483,
+      "experience_time_min": 7,
+      "queue_walk_min": 3,
+      "default_priority": 4,
+      "pass_type": "priority",
+      "requires_reservation": false,
+      "outdoor": false,
+      "popularity_tier": "A",
+      "queue_times_id": 8015,
+      "avg_wait_min": 30
+    },
+    {
+      "id": "splash_mountain",
+      "name": "スプラッシュ・マウンテン",
+      "scrape_key": "スプラッシュ",
+      "area": "クリッターカントリー",
+      "lat": 35.63068751031142,
+      "lng": 139.88318574387773,
+      "experience_time_min": 11,
+      "queue_walk_min": 3,
+      "default_priority": 5,
+      "pass_type": "dpa",
+      "requires_reservation": false,
+      "outdoor": false,
+      "popularity_tier": "S",
+      "queue_times_id": 7996,
+      "avg_wait_min": 60
     }
   ]
 }

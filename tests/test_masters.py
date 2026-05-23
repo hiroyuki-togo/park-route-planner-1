@@ -2,8 +2,15 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from src.constants import AREAS
 from src.models import Attraction, Restaurant
+
+
+@pytest.fixture
+def attractions_data():
+    return json.loads(Path("data/attractions.json").read_text())
 
 
 def test_attractions_all_loadable():
@@ -44,3 +51,37 @@ def test_restaurants_coordinates_filled():
     raw = json.loads(Path("data/restaurants.json").read_text())
     unfilled = [r["id"] for r in raw["restaurants"] if r["lat"] is None or r["lng"] is None]
     assert unfilled == [], f"coordinates missing for: {unfilled}"
+
+
+def test_star_tours_and_splash_mountain_exist(attractions_data):
+    ids = {a["id"] for a in attractions_data["attractions"]}
+    assert "star_tours" in ids, "スター・ツアーズが attractions.json に無い"
+    assert "splash_mountain" in ids, "スプラッシュマウンテンが attractions.json に無い"
+
+
+def test_pass_type_values_are_valid(attractions_data):
+    for a in attractions_data["attractions"]:
+        pass_type = a.get("pass_type")
+        assert pass_type in (None, "dpa", "priority"), (
+            f"{a['id']} の pass_type が不正: {pass_type}"
+        )
+
+
+def test_dpa_attractions_count(attractions_data):
+    dpa = [a for a in attractions_data["attractions"] if a.get("pass_type") == "dpa"]
+    assert len(dpa) == 3, f"DPA 対象は 3 件のはずだが {len(dpa)} 件"
+    dpa_ids = {a["id"] for a in dpa}
+    assert dpa_ids == {"beauty_and_beast", "baymax", "splash_mountain"}
+
+
+def test_priority_pass_attractions_count(attractions_data):
+    pri = [a for a in attractions_data["attractions"] if a.get("pass_type") == "priority"]
+    assert len(pri) == 5, f"プライオリティ対象は 5 件のはずだが {len(pri)} 件"
+    pri_ids = {a["id"] for a in pri}
+    assert pri_ids == {
+        "big_thunder",
+        "pooh",
+        "haunted_mansion",
+        "star_tours",
+        "monsters_inc",
+    }
