@@ -120,9 +120,11 @@ UI 上、これ以外の変更は不要:
 - `theme.py` のルートカードレンダラは `block_type` を見ているので影響なし
 - ルート生成ロジック（router）も `pass_type` を直接見ない（fixed_blocks が時刻指定で挿入されるだけ）
 
-### 3.6 scripts/import_attractions_from_xlsx.py の対応
+### 3.6 scripts/generate_attractions_template.py の対応
 
-Excel カラム名を `dpa_eligible` → `pass_type` に変更。Excel 側で空欄なら `None`、`"dpa"` / `"priority"` の文字列リテラル運用とする。Excel テンプレ生成スクリプト（`scripts/generate_attractions_template.py`）も同様に更新。
+Excel テンプレ生成スクリプトの `dpa_eligible` 列を `pass_type` に変更。Excel 側で空欄なら `None`、`"dpa"` / `"priority"` の文字列リテラル運用とする。
+
+なお、現状 `scripts/import_coordinates_from_xlsx.py` は **座標専用**であり、pass_type を Excel 経由で更新する経路は存在しない。pass_type の更新は `data/attractions.json` の直接編集で行う運用とする。
 
 ---
 
