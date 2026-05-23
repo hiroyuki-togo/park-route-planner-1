@@ -270,7 +270,7 @@ pass_type refactor の過程で気付いたが本仕様外として据置にし�
 
 | ID | 内容 | 出典 |
 |---|---|---|
-| K-A | 警告メッセージ「DPA を登録してください」が `pass_type=priority` の must アトラクションに対しても出てしまう（文言が pass_type 別になっていない）。Phase 7 後の小修正タスクで拾う | Task 6 後の動作確認 |
+| K-A | **latent risk**: `router.py` の `no_dpa_for_reserved` 警告は `requires_reservation=true` でトリガーされ、現状その対象は美女と野獣 / baymax の 2 件（どちらも `pass_type=dpa`）のみなので現時点で発火しない。ただし将来 `pass_type=priority` の行に `requires_reservation=true` を立てた場合、文言「DPA を登録してください」が pass_type 別になっていないため UX 不整合になる。文言を pass_type 別に振り分けるか、警告条件側に `pass_type` も組み込むか、別タスクで判断 | Final reviewer I-1 / Task 6 検討 |
 | K-B | 内部 label `"DPA: {name}"`（app.py で DPA 入力済を表示する箇所）も pass_type 別に振り分けると UX 一貫性向上 | Task 6 後の動作確認 |
 | K-C | `Attraction` モデルに `model_config = ConfigDict(extra="forbid")` を入れると、今回の dpa_eligible silent-drop のような将来の fixture リファクタ事故を防げる（lessons #30） | Task 3 code reviewer M-3 |
 | K-D | star_tours / splash_mountain の `avg_wait_min`（30 / 60 分）は 2026-05-23 時点の推測値。Queue-Times stats API では取得不可だった。来園日リハで実測値に置き換える余地 | Task 5 code reviewer M-3 |
