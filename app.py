@@ -225,29 +225,24 @@ def main() -> None:
     # ─── アトラクション設定 ──────────────────────────────
     with st.expander("▼ アトラクション設定", expanded=False):
         for a in sorted(attractions, key=lambda x: (x.area, x.name)):
-            if is_sim_mode:
-                col_must, col_prio = st.columns([1, 3])
-                col_done = None
-            else:
-                col_must, col_done, col_prio = st.columns([1, 1, 3])
+            col_must, col_done, col_prio = st.columns([1, 1, 3])
             with col_must:
                 must = st.checkbox(
                     "必ず乗る",
                     key=f"must_{a.id}_{token}",
                     value=(a.id in st.session_state.must_visits),
                 )
-            if col_done is not None:
-                with col_done:
-                    done = st.checkbox(
-                        "乗った",
-                        key=f"done_{a.id}_{token}",
-                        value=(a.id in st.session_state.visited_attractions),
-                        help="チェックすると候補から除外され、再生成時に重複しない",
-                    )
-                if done:
-                    st.session_state.visited_attractions.add(a.id)
-                else:
-                    st.session_state.visited_attractions.discard(a.id)
+            with col_done:
+                done = st.checkbox(
+                    "乗った",
+                    key=f"done_{a.id}_{token}",
+                    value=(a.id in st.session_state.visited_attractions),
+                    help="チェックすると候補から除外され、再生成時に重複しない",
+                )
+            if done:
+                st.session_state.visited_attractions.add(a.id)
+            else:
+                st.session_state.visited_attractions.discard(a.id)
             with col_prio:
                 priority = st.slider(
                     a.name,
@@ -538,10 +533,7 @@ def main() -> None:
                     constraints=constraints,
                     priorities=st.session_state.priorities,
                     must_visits=set(st.session_state.must_visits),
-                    visited=(
-                        set(st.session_state.visited_attractions)
-                        if not is_sim_mode else None
-                    ),
+                    visited=set(st.session_state.visited_attractions),
                     weather_mode=st.session_state.weather_mode,
                 )
                 st.session_state.current_route = result
