@@ -12,7 +12,7 @@ from streamlit_local_storage import LocalStorage
 from src.models import Attraction, FixedBlock, Restaurant
 from src.router import RouteConstraints, generate_route
 from src.scraper import fetch_realtime_wait_times
-from src.simulator import build_opening_snapshot
+from src.simulator import build_snapshot_at
 from theme import inject_theme, render_route_step
 
 
@@ -426,7 +426,10 @@ def main() -> None:
         if st.button(fetch_label, key="btn_fetch"):
             with st.spinner("生成中..." if is_sim_mode else "取得中..."):
                 if is_sim_mode:
-                    snap = build_opening_snapshot(attractions, sim_date)
+                    snap = build_snapshot_at(
+                        attractions,
+                        datetime.combine(route_date, current_time_val),
+                    )
                     st.session_state.last_snapshot = snap
                     st.session_state.last_fetch_time = datetime.now()
                     st.success(
@@ -458,7 +461,10 @@ def main() -> None:
                             )
                     else:
                         # Queue-Times も snapshot ファイルも無い → シミュ値で代替
-                        fallback = build_opening_snapshot(attractions, route_date)
+                        fallback = build_snapshot_at(
+                            attractions,
+                            datetime.combine(route_date, current_time_val),
+                        )
                         st.session_state.last_snapshot = fallback
                         st.session_state.last_fetch_time = datetime.now()
                         st.warning(
