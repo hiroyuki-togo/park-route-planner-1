@@ -260,3 +260,21 @@ dpa_eligible → pass_type 移行の際、後方互換のための `dpa_eligible
 3. **lessons #22「動いていると思い込んでいる機能は実証で確認」の延長**。今回は東郷さんが実 UI で操作して初めて発見。「テストが通る = 動いている」ではない、特に外部 API 連携部分は
 
 **副次成果**: sim モードと当日モードの境界が明確化（営業時間内は当日モード = 実データ、それ以外は内部的にシミュ計算）。lessons #18 追記の「役割重複は allow して UI 分岐削減」と整合した実装になった。
+
+---
+
+### 32. 「必ず乗る + 予約済み枠」の二重消化バグ — 候補プールに reserved_ids も含めて除外する
+
+2026-05-23 夜、lessons #31 修正後の動作検証で発見。`must_visit={"pooh"}` + プライオリティ枠 `pooh 10:30-11:30` を入れてルート生成すると、プーさんが **2 回** 登場する（09:22 attraction として消化 → 10:32 dpa として再消化）。スクリーンショットで一発で見えた、東郷さんの観察力が救った。
+
+**原因**: `_candidate_pool()` が `visited` 集合だけでフィルタしていた。`must_visit` 経由で通常候補プールに入った pooh は、固定ブロック消化前の早朝にスコア勝ちして消化されてしまう。その後、固定ブロック消化ループで pooh の予約枠が来た時、attraction_id を見ずに `_handle_fixed_block` を回すので二重消化が成立する。
+
+**修正**: `generate_route()` の冒頭で `reserved_ids = {b.attraction_id for b in fixed_blocks if b.type == "dpa"}` を作り、(a) `must_remaining` から除外、(b) `_candidate_pool` 呼び出し時に `visited | reserved_ids` を渡す。これで「予約済み枠で乗るアトラクションは通常候補に出ない」「必ず乗る判定からも外す（予約枠で確実に乗るため）」が両立する。
+
+`test_must_visit_with_reserved_block_no_duplicate` を追加。修正前は pooh が 2 回登場で fail、修正後は 1 回（dpa 経由）で pass。
+
+**学び**:
+
+1. **`visited` 集合は「消化済み」と「消化予定」を区別しない**。固定ブロックは「未来に必ず消化する」予約に相当するので、通常候補プール側からは `visited` 同等に扱う必要がある。`_candidate_pool` の引数を「`visited` 単体」から「`visited | scheduled`」に拡張するのが筋
+2. **二重消化系のバグはスクリーンショットで見える**: pytest はステップを単独でしか検証していなかった（dpa が来る / attraction が来る を独立 assert）。「同じアトラクションが 2 回出ない」という cross-step invariant を assert するテストを書く視点が抜けていた
+3. **lessons #16「結論先・式は補足」と同じく、テスト書く時は『何を保証したいか』を先に文章化する**。「必ず乗る + 予約済み枠」の場合「同じアトラクションは 1 回だけ登場すべき」という invariant が言語化されていれば、最初の Task 16 / T-D1 で書かれていたはず

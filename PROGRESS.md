@@ -2,7 +2,7 @@
 
 > 次セッションの Claude Code が状況を即時把握するための引き継ぎファイル。
 
-**最終更新**: 2026-05-23（pass_type refactor + 営業時間外 snapshot バグ修正 + K-B 完了後）
+**最終更新**: 2026-05-23（pass_type refactor + 営業時間外 snapshot バグ修正 + K-B + 二重消化バグ修正 完了後）
 **来園日**: 2026-05-25（月）
 **残り日数**: 2 日
 
@@ -10,8 +10,8 @@
 
 ## 1. 現在のステータス
 
-**Phase 1〜6 完了 + シミュ + 当日モード実運用 + デザイン適用 + UX 微改善 + ライブ取得復活 + 後続改善 + pass_type refactor + 営業時間外 snapshot バグ修正 + K-B 完了**。
-**テスト 82/82 PASS**、Streamlit 起動確認済 + 東郷さん目視確認済（複数回）。
+**Phase 1〜6 完了 + シミュ + 当日モード実運用 + デザイン適用 + UX 微改善 + ライブ取得復活 + 後続改善 + pass_type refactor + 営業時間外 snapshot バグ修正 + K-B + 二重消化バグ修正 完了**。
+**テスト 83/83 PASS**、Streamlit 起動確認済 + 東郷さん目視確認済（複数回）。
 
 5/22 1 日で本日累計 **13 コミット** 進めた:
 
@@ -36,7 +36,7 @@
 同日 **pass_type schema refactor も完了**（東郷さん指摘「プライオリティパスもあるよね？」起点）。プライオリティパス制度（2024 導入）への未対応を解消し、`Attraction.dpa_eligible: bool` → `pass_type: Literal["dpa","priority"] | None` に schema 変更。
 data/attractions.json 既存 6 件を正しい制度に修正（pooh / monsters_inc / big_thunder / haunted_mansion は 2024 時点で priority、美女と野獣 / baymax は dpa、baymax は requires_reservation=true）+ スター・ツアーズ / スプラッシュマウンテン 2 件をマスタ追加（20 → 22 件）。
 仕様: [docs/superpowers/specs/2026-05-23-pass-type-schema-refactor-design.md](docs/superpowers/specs/2026-05-23-pass-type-schema-refactor-design.md) / プラン: [plans/2026-05-23-pass-type-schema-refactor.md](docs/superpowers/plans/2026-05-23-pass-type-schema-refactor.md)。
-テスト 69 → 77 PASS（その後 5/23 夜の営業時間外 snapshot バグ修正で **82 PASS** に到達）。次は Phase 7（デプロイ）。
+テスト 69 → 77 PASS（その後 5/23 夜の営業時間外 snapshot バグ修正 + 二重消化バグ修正で **83 PASS** に到達）。次は Phase 7（デプロイ）。
 
 残るは **Phase 7（デプロイ、5/23-24 目標）**。
 
@@ -224,9 +224,10 @@ pass_type refactor 完了後の東郷さん動作確認で、当日モードで�
 | コミット | 内容 |
 |---|---|
 | `f9c0520` | A-1（営業時間外 snapshot fallback）+ K-B（pass_type 別ラベル）+ 再現スクリプト `scripts/debug_route_generation.py` |
-| (このコミット) | spec §3.7 追記 + PROGRESS / lessons #31 更新 |
+| `3e55235` | spec §3.7 追記 + PROGRESS / lessons #31 更新 |
+| `e60412a` | **二重消化バグ修正**: 「必ず乗る + 予約済み枠」で同じアトラクションが通常候補と予約枠の両方で消化されていた問題（東郷さん発見、pooh が 09:22 と 10:32 の 2 回登場）。`reserved_ids` を `_candidate_pool` で除外。test 追加 → 83 PASS |
 
-テスト 77 → **82 PASS**。仕様 §3.7 / lessons #31 参照。役割境界: sim モード ≠ 当日モード営業時間内、当日モード営業時間外 = 内部的に sim 計算（lessons #18 追記と整合）。
+テスト 77 → **83 PASS**。仕様 §3.7 / lessons #31-32 参照。役割境界: sim モード ≠ 当日モード営業時間内、当日モード営業時間外 = 内部的に sim 計算（lessons #18 追記と整合）。
 
 ---
 
@@ -494,7 +495,7 @@ JSON エンドポイント：`https://www.tokyodisneyresort.jp/_/realtime/tdl_at
 
 ```
 ディズニーランドのルート生成ツール、機能完全 + sim 時刻軸拡張 + pass_type schema refactor まで完了。
-テスト 82/82 PASS、Theme Park Warm UI 適用済、マスタ 22 件（pass_type: DPA 3 / priority 5）。営業時間外 snapshot バグ修正済、K-B 解消済。
+テスト 83/83 PASS、Theme Park Warm UI 適用済、マスタ 22 件（pass_type: DPA 3 / priority 5）。営業時間外 snapshot バグ + K-B + 二重消化バグ すべて解消済。
 残りは Phase 7（デプロイ）のみ。
 
 来園日は 2026-05-25（月）。今日は 5/24（日曜）。残り 1 日でデプロイ + リハ。
