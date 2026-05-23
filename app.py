@@ -12,7 +12,7 @@ from streamlit_local_storage import LocalStorage
 from src.models import Attraction, FixedBlock, Restaurant
 from src.router import RouteConstraints, generate_route
 from src.scraper import fetch_realtime_wait_times
-from src.simulator import build_snapshot_at
+from src.simulator import build_snapshot_at, is_snapshot_off_hours
 from theme import inject_theme, render_route_step
 
 
@@ -425,9 +425,11 @@ def main() -> None:
                 )
             if aid != "（未選択）":
                 a = attraction_map[aid]
+                # pass_type に応じて DPA / プライオリティ のラベルを振り分け
+                label_prefix = "DPA" if a.pass_type == "dpa" else "プライオリティ"
                 new_dpa.append({
                     "attraction_id": aid,
-                    "label": f"DPA: {a.name}",
+                    "label": f"{label_prefix}: {a.name}",
                     "start": start_t.isoformat(timespec="minutes"),
                     "end": end_t.isoformat(timespec="minutes"),
                     "lat": a.lat,
@@ -458,7 +460,23 @@ def main() -> None:
                         last_snapshot=st.session_state.last_snapshot,
                         last_fetch=st.session_state.last_fetch_time,
                     )
-                    if snap:
+                    if snap and is_snapshot_off_hours(snap):
+                        # 営業時間外取得：Queue-Times は閉園後 / 開園前に全アトラクションを
+                        # closed として返すため、router の候補プールが空になる構造的バグの原因。
+                        # シミュ予測値で代替し、ルート対象時刻の wait_min を時刻補正で生成する。
+                        fallback = build_snapshot_at(
+                            attractions,
+                            datetime.combine(route_date, current_time_val),
+                        )
+                        st.session_state.last_snapshot = fallback
+                        st.session_state.last_fetch_time = datetime.now()
+                        st.warning(
+                            f"⚠️ 取得 snapshot は {snap.timestamp.strftime('%H:%M')} の営業時間外データ"
+                            f"（Queue-Times は閉園後 / 開園前は全件 closed を返すため信頼不可）。"
+                            f"シミュ予測値（{current_time_val.strftime('%H:%M')} スタート想定）で代替します。"
+                            f"  Powered by Queue-Times.com"
+                        )
+                    elif snap:
                         st.session_state.last_snapshot = snap
                         st.session_state.last_fetch_time = datetime.now()
                         # snapshot.timestamp は scraper 側で既に JST naive に変換済み

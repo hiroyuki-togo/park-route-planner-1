@@ -4,7 +4,7 @@ from datetime import datetime
 from src.constants import OPENING_BASE_WAIT_BY_TIER
 from src.models import Attraction, WaitTimeSnapshot
 from src.router import RouteConstraints, generate_route
-from src.simulator import build_snapshot_at
+from src.simulator import build_snapshot_at, is_snapshot_off_hours
 
 
 def test_snapshot_at_basic(sample_attractions):
@@ -152,3 +152,33 @@ def test_simulate_then_route_at_arbitrary_time(sample_attractions):
     if result.steps:
         first_step = result.steps[0]
         assert first_step.arrive >= target_dt
+
+
+def test_is_snapshot_off_hours_before_open():
+    """9 時前は営業時間外。"""
+    snap = WaitTimeSnapshot(timestamp=datetime(2026, 5, 25, 7, 0), park="TDL", data=[])
+    assert is_snapshot_off_hours(snap) is True
+
+
+def test_is_snapshot_off_hours_at_open():
+    """9:00 ちょうどは営業時間内（境界）。"""
+    snap = WaitTimeSnapshot(timestamp=datetime(2026, 5, 25, 9, 0), park="TDL", data=[])
+    assert is_snapshot_off_hours(snap) is False
+
+
+def test_is_snapshot_off_hours_midday():
+    """昼の取得は営業時間内。"""
+    snap = WaitTimeSnapshot(timestamp=datetime(2026, 5, 25, 14, 30), park="TDL", data=[])
+    assert is_snapshot_off_hours(snap) is False
+
+
+def test_is_snapshot_off_hours_at_close():
+    """21:00 ちょうどは営業時間外（閉園後扱い）。"""
+    snap = WaitTimeSnapshot(timestamp=datetime(2026, 5, 25, 21, 0), park="TDL", data=[])
+    assert is_snapshot_off_hours(snap) is True
+
+
+def test_is_snapshot_off_hours_late_night():
+    """夜遅くの取得は営業時間外。東郷さんが 5/23 21:16 に当たったケース。"""
+    snap = WaitTimeSnapshot(timestamp=datetime(2026, 5, 23, 21, 16), park="TDL", data=[])
+    assert is_snapshot_off_hours(snap) is True

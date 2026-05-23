@@ -17,6 +17,21 @@ from src.constants import (
 from src.models import Attraction, WaitTimeEntry, WaitTimeSnapshot
 
 
+def is_snapshot_off_hours(snapshot: WaitTimeSnapshot) -> bool:
+    """snapshot.timestamp が営業時間外（< 9 時 or >= 21 時）かを判定。
+
+    Queue-Times.com は閉園後 / 開園前に全アトラクションの status を 'closed'
+    として返すため、その snapshot を当日モードのルート生成に使うと、router の
+    _is_operating() が全件を「運営中じゃない」と判定して候補プールが空になる。
+    結果として予約済み枠と食事ブロックだけのスカスカルートが生成される構造的バグ。
+
+    本判定で True を返す場合、呼び出し側は build_snapshot_at() で合成 snapshot に
+    差し替えることを推奨（実 wait_min が信用できないため）。
+    """
+    hour = snapshot.timestamp.hour
+    return hour < 9 or hour >= 21
+
+
 def build_snapshot_at(
     attractions: list[Attraction],
     target_datetime: datetime,
