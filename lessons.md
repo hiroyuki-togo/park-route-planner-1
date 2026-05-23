@@ -240,3 +240,23 @@ dpa_eligible → pass_type 移行の際、後方互換のための `dpa_eligible
 `Attraction(dpa_eligible=True)` が Pydantic v2 では unknown kwarg として silently drop されることに、Task 1 完了時の code review で気付いた。テストを走らせても引っかからない（kwarg は単に無視されてデフォルト値が入る）。fixture リファクタ時の見えない事故源で、今回も「移行後の fixture で `dpa_eligible=True` の指定が残っていても test は通ってしまう」状態だった。
 
 **学び**: `model_config = ConfigDict(extra="forbid")` を導入すれば construction 時に `ValidationError` で即気付ける。今回は scope 外として見送ったが、PROGRESS.md §3 B K-C で次セッション以降の課題として記録。同様の事故防止策として、移行系 refactor では **「旧フィールド名の文字列 grep」を完了条件に必ず入れる**（今回は実施したのが救い）。
+
+---
+
+### 31. 外部 API の「閉園後 / 開園前は全件 closed」が候補プールを枯渇させる構造的バグ
+
+2026-05-23 21:16 に当日モードでライブ取得 → ルート生成すると、予約済み枠（DPA / プライオリティ）+ 食事ブロックの **3 ステップだけ**のスカスカルートが生成された（プーさん 10:37 → 食事 13:00 → 美女と野獣 14:09）。優先度 5 や 3 のアトラクションが多数候補にあるのに 1 件も入らない。
+
+**原因**: Queue-Times.com は閉園後 / 開園前にすべてのアトラクションを `status="closed"` で返す（5/23 21:16 の snapshot は operating=0 / closed=37 を実測）。router の `_is_operating()` がこれを素直に解釈して全件を候補プールから除外、結果 `_candidate_pool()` が空になり、ループが固定ブロックの開始時刻にジャンプし続けるだけになる。
+
+**再現**: `scripts/debug_route_generation.py` で実 snapshot を読ませると 3 件、合成 snapshot（全件 operating）に差し替えると 15 件のフルルートが生成。再現性 100%。
+
+**対症療法**: `is_snapshot_off_hours(snap)` で取得時刻が 9-21 外と判定したら、app.py 側で `build_snapshot_at()`（sim モードと同じロジック）で snapshot を丸ごと差し替える。営業時間内取得は従来通り実 wait_min を使う。詳細は [仕様書 §3.7](docs/superpowers/specs/2026-05-23-pass-type-schema-refactor-design.md)。
+
+**学び**:
+
+1. **外部 API は「データを返している = データが使える」とは限らない**。「全件 closed」「全件 wait_min=null」は構造的に成立する状態で、内部ロジックがそれを「現実状態」と解釈すると沈黙のバグになる
+2. **ライブ取得 + ルート生成のような連結機能は、外部 API の境界条件（閉園後 / 開園前 / メンテ中）を「再現テスト」でカバーする**必要がある。pytest 単体では実 snapshot を引かないので気付きにくい
+3. **lessons #22「動いていると思い込んでいる機能は実証で確認」の延長**。今回は東郷さんが実 UI で操作して初めて発見。「テストが通る = 動いている」ではない、特に外部 API 連携部分は
+
+**副次成果**: sim モードと当日モードの境界が明確化（営業時間内は当日モード = 実データ、それ以外は内部的にシミュ計算）。lessons #18 追記の「役割重複は allow して UI 分岐削減」と整合した実装になった。

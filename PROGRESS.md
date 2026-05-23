@@ -2,7 +2,7 @@
 
 > 次セッションの Claude Code が状況を即時把握するための引き継ぎファイル。
 
-**最終更新**: 2026-05-23（pass_type schema refactor 完了後）
+**最終更新**: 2026-05-23（pass_type refactor + 営業時間外 snapshot バグ修正 + K-B 完了後）
 **来園日**: 2026-05-25（月）
 **残り日数**: 2 日
 
@@ -10,8 +10,8 @@
 
 ## 1. 現在のステータス
 
-**Phase 1〜6 完了 + シミュ + 当日モード実運用 + デザイン適用 + UX 微改善 + ライブ取得復活 + 後続改善 + pass_type refactor 完了**。
-**テスト 77/77 PASS**、Streamlit 起動確認済 + 東郷さん目視確認済（複数回）。
+**Phase 1〜6 完了 + シミュ + 当日モード実運用 + デザイン適用 + UX 微改善 + ライブ取得復活 + 後続改善 + pass_type refactor + 営業時間外 snapshot バグ修正 + K-B 完了**。
+**テスト 82/82 PASS**、Streamlit 起動確認済 + 東郷さん目視確認済（複数回）。
 
 5/22 1 日で本日累計 **13 コミット** 進めた:
 
@@ -36,7 +36,7 @@
 同日 **pass_type schema refactor も完了**（東郷さん指摘「プライオリティパスもあるよね？」起点）。プライオリティパス制度（2024 導入）への未対応を解消し、`Attraction.dpa_eligible: bool` → `pass_type: Literal["dpa","priority"] | None` に schema 変更。
 data/attractions.json 既存 6 件を正しい制度に修正（pooh / monsters_inc / big_thunder / haunted_mansion は 2024 時点で priority、美女と野獣 / baymax は dpa、baymax は requires_reservation=true）+ スター・ツアーズ / スプラッシュマウンテン 2 件をマスタ追加（20 → 22 件）。
 仕様: [docs/superpowers/specs/2026-05-23-pass-type-schema-refactor-design.md](docs/superpowers/specs/2026-05-23-pass-type-schema-refactor-design.md) / プラン: [plans/2026-05-23-pass-type-schema-refactor.md](docs/superpowers/plans/2026-05-23-pass-type-schema-refactor.md)。
-テスト 69 → **77 PASS**。次は Phase 7（デプロイ）。
+テスト 69 → 77 PASS（その後 5/23 夜の営業時間外 snapshot バグ修正で **82 PASS** に到達）。次は Phase 7（デプロイ）。
 
 残るは **Phase 7（デプロイ、5/23-24 目標）**。
 
@@ -209,6 +209,27 @@ Subagent-Driven Development で 9 Task を実装。各タスクで spec 適合�
 
 ---
 
+### 営業時間外 snapshot バグ修正 + K-B 即時対応 — 5/23 夜 完了
+
+pass_type refactor 完了後の東郷さん動作確認で、当日モードでルート生成すると**予約済み枠 + 食事だけの 3 ステップスカスカルート**が生成される事象が発覚。原因は Queue-Times.com が **閉園後 / 開園前に全アトラクションを `status="closed"` で返す**こと（5/23 21:16 取得 snapshot は operating=0 / closed=37）。router の `_is_operating()` が素直に解釈して候補プール枯渇 → 固定ブロック消化だけで終わる構造的バグ（lessons #31）。
+
+**修正**:
+- `src/simulator.py` に `is_snapshot_off_hours(snapshot)` 追加（hour < 9 or >= 21 で True）
+- `app.py` のライブ取得分岐で True なら `build_snapshot_at()` で snapshot を丸ごとシミュ予測値に差し替え + warning 表示
+- 営業時間内（9-21）の取得は従来通り実 wait_min を使用（実害なし）
+
+**K-B 同時対応**:
+- app.py の `f"DPA: {a.name}"` を `pass_type` 別に振り分け（`dpa` → "DPA: ..." / `priority` → "プライオリティ: ..."）。これまでプライオリティ対象（プーさん等）も「DPA:」と表記されていた UX 不整合を解消
+
+| コミット | 内容 |
+|---|---|
+| `f9c0520` | A-1（営業時間外 snapshot fallback）+ K-B（pass_type 別ラベル）+ 再現スクリプト `scripts/debug_route_generation.py` |
+| (このコミット) | spec §3.7 追記 + PROGRESS / lessons #31 更新 |
+
+テスト 77 → **82 PASS**。仕様 §3.7 / lessons #31 参照。役割境界: sim モード ≠ 当日モード営業時間内、当日モード営業時間外 = 内部的に sim 計算（lessons #18 追記と整合）。
+
+---
+
 ### デザイン適用 + UX 微改善（Theme Park Warm v2 / v2.1 + 推奨 5 件） — 5/21 完了
 
 東郷さん事前準備の `theme.py` v2（CSS インジェクション + ルートカードレンダラ）と `.streamlit/config.toml` を取り込み、Streamlit デフォルト UI を「**Theme Park Warm**」（アイボリー背景 + 暖色オレンジ）へ全面移行。同セッション内で論点 14 件を整理し、推奨実装枠 5 件を全て適用。
@@ -271,7 +292,7 @@ pass_type refactor の過程で気付いたが本仕様外として据置にし�
 | ID | 内容 | 出典 |
 |---|---|---|
 | K-A | **latent risk**: `router.py` の `no_dpa_for_reserved` 警告は `requires_reservation=true` でトリガーされ、現状その対象は美女と野獣 / baymax の 2 件（どちらも `pass_type=dpa`）のみなので現時点で発火しない。ただし将来 `pass_type=priority` の行に `requires_reservation=true` を立てた場合、文言「DPA を登録してください」が pass_type 別になっていないため UX 不整合になる。文言を pass_type 別に振り分けるか、警告条件側に `pass_type` も組み込むか、別タスクで判断 | Final reviewer I-1 / Task 6 検討 |
-| K-B | 内部 label `"DPA: {name}"`（app.py で DPA 入力済を表示する箇所）も pass_type 別に振り分けると UX 一貫性向上 | Task 6 後の動作確認 |
+| ~~K-B~~ | ~~内部 label `"DPA: {name}"`（app.py で DPA 入力済を表示する箇所）も pass_type 別に振り分けると UX 一貫性向上~~ → **5/23 夜に修正済**（コミット `f9c0520`、`label_prefix` で dpa/priority 振り分け） | Task 6 後の動作確認 |
 | K-C | `Attraction` モデルに `model_config = ConfigDict(extra="forbid")` を入れると、今回の dpa_eligible silent-drop のような将来の fixture リファクタ事故を防げる（lessons #30） | Task 3 code reviewer M-3 |
 | K-D | star_tours / splash_mountain の `avg_wait_min`（30 / 60 分）は 2026-05-23 時点の推測値。Queue-Times stats API では取得不可だった。来園日リハで実測値に置き換える余地 | Task 5 code reviewer M-3 |
 
@@ -473,7 +494,7 @@ JSON エンドポイント：`https://www.tokyodisneyresort.jp/_/realtime/tdl_at
 
 ```
 ディズニーランドのルート生成ツール、機能完全 + sim 時刻軸拡張 + pass_type schema refactor まで完了。
-テスト 77/77 PASS、Theme Park Warm UI 適用済、マスタ 22 件（pass_type: DPA 3 / priority 5）。
+テスト 82/82 PASS、Theme Park Warm UI 適用済、マスタ 22 件（pass_type: DPA 3 / priority 5）。営業時間外 snapshot バグ修正済、K-B 解消済。
 残りは Phase 7（デプロイ）のみ。
 
 来園日は 2026-05-25（月）。今日は 5/24（日曜）。残り 1 日でデプロイ + リハ。

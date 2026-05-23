@@ -126,6 +126,20 @@ Excel テンプレ生成スクリプトの `dpa_eligible` 列を `pass_type` に
 
 なお、現状 `scripts/import_coordinates_from_xlsx.py` は **座標専用**であり、pass_type を Excel 経由で更新する経路は存在しない。pass_type の更新は `data/attractions.json` の直接編集で行う運用とする。
 
+### 3.7 営業時間外 snapshot のフォールバック処理（追補）
+
+**背景**: 2026-05-23 夜の動作検証で、当日モードのライブ取得が「予約済み枠と食事だけのスカスカルート」を生成する事象が発見された。原因は Queue-Times.com が閉園後 / 開園前に全アトラクションの `status` を `"closed"` として返すこと。router の `_is_operating()` がそれをそのまま信用して候補プールが空になっていた（lessons #31）。
+
+**対応**:
+
+1. `src/simulator.py` に判定関数 `is_snapshot_off_hours(snapshot) -> bool` を追加。`snapshot.timestamp.hour` が 9 未満 or 21 以上なら `True`
+2. `app.py` のライブ取得分岐で、`is_snapshot_off_hours(snap)` が `True` の場合は `build_snapshot_at(attractions, current_time)` で **合成 snapshot に丸ごと差し替え** + UI warning 表示
+3. 営業時間内（9〜21 時）の取得は従来通り実 `wait_min` をそのまま使用。営業時間内の `closed`（整備中アトラクション）は引き続き候補から除外
+
+**前提する時刻**: フォールバック時の `target_datetime` は **`route_date` + `current_time_val`**（UI で東郷さんが指定した「現在時刻」フィールド）。シミュモードと同じ `build_snapshot_at` ロジックを流用するため、time-factor 補正（β 計算式、lessons #18 追記参照）が効く。
+
+**役割境界**: 当日モードとシミュモードの違いは「ライブデータを取りに行くか」だけ。営業時間内取得時は当日モードが実データを使い、営業時間外取得時は内部的にシミュと同じ計算になる。これは「両モードの役割重複を allow して UI コード分岐を削減」（lessons #18 追記）と整合。
+
 ---
 
 ## 4. ショー/パレード DPA の扱い（v1 範囲外）
