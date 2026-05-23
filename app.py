@@ -371,8 +371,8 @@ def main() -> None:
             })
         st.session_state.show_blocks = new_shows
 
-    # ─── DPA 予約 ──────────────────────────────────────
-    with st.expander("▼ DPA 予約", expanded=False):
+    # ─── 予約済み枠（DPA / プライオリティパス） ──────────────────────────────────────
+    with st.expander("予約済み枠（DPA / プライオリティパス）", expanded=False):
         dpa_count = st.number_input(
             "DPA 数", min_value=0, max_value=4,
             value=len(st.session_state.dpa_blocks),
@@ -380,6 +380,20 @@ def main() -> None:
         )
         new_dpa: list[dict] = []
         dpa_options = ["（未選択）"] + [a.id for a in attractions if a.pass_type is not None]
+
+        def _pass_type_label(attr) -> str:
+            if attr.pass_type == "dpa":
+                return " (DPA)"
+            if attr.pass_type == "priority":
+                return " (プライオリティ)"
+            return ""
+
+        def _format_dpa_option(x: str) -> str:
+            if x == "（未選択）":
+                return "（未選択）"
+            a = attraction_map[x]
+            return f"{a.name}{_pass_type_label(a)}"
+
         for i in range(int(dpa_count)):
             cols = st.columns([3, 2, 2])
             existing = (
@@ -390,7 +404,7 @@ def main() -> None:
                 aid = st.selectbox(
                     f"アトラクション #{i+1}",
                     dpa_options,
-                    format_func=lambda x: "（未選択）" if x == "（未選択）" else attraction_map[x].name,
+                    format_func=_format_dpa_option,
                     index=(
                         dpa_options.index(existing["attraction_id"])
                         if existing and existing.get("attraction_id") in dpa_options else 0
