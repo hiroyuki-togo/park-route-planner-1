@@ -137,6 +137,7 @@ def main() -> None:
         st.session_state.current_route = None
         st.session_state.last_snapshot = None
         st.session_state.last_fetch_time = None
+        st.session_state.visited_attractions = set()
     st.session_state._prev_mode = mode
 
     if is_sim_mode:
