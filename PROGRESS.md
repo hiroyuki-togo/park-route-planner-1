@@ -34,7 +34,7 @@
 テスト 64 → 69 PASS。
 
 同日 **pass_type schema refactor も完了**（東郷さん指摘「プライオリティパスもあるよね？」起点）。プライオリティパス制度（2024 導入）への未対応を解消し、`Attraction.dpa_eligible: bool` → `pass_type: Literal["dpa","priority"] | None` に schema 変更。
-data/attractions.json 既存 6 件を正しい制度に修正（pooh / monsters_inc は 2024 時点で priority、美女と野獣 / baymax は dpa、baymax は requires_reservation=true）+ スター・ツアーズ / スプラッシュマウンテン 2 件をマスタ追加（21 → 23 件）。
+data/attractions.json 既存 6 件を正しい制度に修正（pooh / monsters_inc / big_thunder / haunted_mansion は 2024 時点で priority、美女と野獣 / baymax は dpa、baymax は requires_reservation=true）+ スター・ツアーズ / スプラッシュマウンテン 2 件をマスタ追加（20 → 22 件）。
 仕様: [docs/superpowers/specs/2026-05-23-pass-type-schema-refactor-design.md](docs/superpowers/specs/2026-05-23-pass-type-schema-refactor-design.md) / プラン: [plans/2026-05-23-pass-type-schema-refactor.md](docs/superpowers/plans/2026-05-23-pass-type-schema-refactor.md)。
 テスト 69 → **77 PASS**。次は Phase 7（デプロイ）。
 
@@ -202,9 +202,9 @@ Subagent-Driven Development で 9 Task を実装。各タスクで spec 適合�
 | 4 | `9cf9efd` | Queue-Times.com ID lookup スクリプト（star_tours=8015, splash_mountain=7996） |
 | 5 | `3878eda` | star_tours / splash_mountain をマスタ追加、整合性テスト 4 件追加 |
 | 6 | `09240f9` | app.py UI 更新（expander ラベル / 選択肢サフィックス） |
-| 7 | (このコミット) | PROGRESS.md / lessons.md 更新 |
+| 7 | `3fd60f5` | PROGRESS.md / lessons.md 更新 |
 
-テスト 69 → **77 PASS**。マスタは 21 → 23 件、pass_type 内訳は DPA=2 件（美女と野獣 / baymax）/ priority=4 件（pooh / monsters_inc / star_tours / splash_mountain）/ なし=17 件。
+テスト 69 → **77 PASS**。マスタは 20 → 22 件、pass_type 内訳は **DPA=3 件**（美女と野獣 / baymax / splash_mountain）/ **priority=5 件**（pooh / monsters_inc / big_thunder / haunted_mansion / star_tours）/ なし=14 件。
 後方互換シムは置かずに一気に切り替え（lessons #29）。
 
 ---
@@ -473,7 +473,7 @@ JSON エンドポイント：`https://www.tokyodisneyresort.jp/_/realtime/tdl_at
 
 ```
 ディズニーランドのルート生成ツール、機能完全 + sim 時刻軸拡張 + pass_type schema refactor まで完了。
-テスト 77/77 PASS、Theme Park Warm UI 適用済、マスタ 23 件（pass_type: DPA 2 / priority 4）。
+テスト 77/77 PASS、Theme Park Warm UI 適用済、マスタ 22 件（pass_type: DPA 3 / priority 5）。
 残りは Phase 7（デプロイ）のみ。
 
 来園日は 2026-05-25（月）。今日は 5/24（日曜）。残り 1 日でデプロイ + リハ。
