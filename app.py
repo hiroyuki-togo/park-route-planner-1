@@ -1,4 +1,4 @@
-"""Park Route Planner Streamlit App."""
+"""TDL Route Planner Streamlit App."""
 from __future__ import annotations
 
 import json
@@ -16,7 +16,7 @@ from src.simulator import build_snapshot_at, is_snapshot_off_hours
 from theme import inject_theme, render_route_step
 
 
-st.set_page_config(page_title="Park Route Planner", page_icon="🎢", layout="centered")
+st.set_page_config(page_title="TDL Route Planner", page_icon="🎢", layout="centered")
 inject_theme()
 
 
@@ -126,7 +126,7 @@ def main() -> None:
                 pass
         st.session_state._loaded = True
 
-    st.title("🎢 Park Route Planner")
+    st.title("🎢 TDL Route Planner")
 
     # widget key suffix。リセット時にインクリメントされ、全 widget が新規描画される
     token = st.session_state.get("reset_token", 0)
