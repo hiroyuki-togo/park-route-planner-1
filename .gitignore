@@ -14,3 +14,6 @@ data/snapshots/
 
 # OS
 .DS_Store
+
+# Office lock files (Excel / Word が開いている間だけ作る一時ファイル)
+~$*

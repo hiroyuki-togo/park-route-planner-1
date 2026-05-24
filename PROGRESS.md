@@ -2,16 +2,43 @@
 
 > 次セッションの Claude Code が状況を即時把握するための引き継ぎファイル。
 
-**最終更新**: 2026-05-23（pass_type refactor + 営業時間外 snapshot バグ修正 + K-B + 二重消化バグ修正 完了後）
+**最終更新**: 2026-05-24（**Phase 7 デプロイ完了** + クラウド UTC バグ修正 + 休止 2 件削除 + 追加 14 件マスタ拡充）
 **来園日**: 2026-05-25（月）
-**残り日数**: 2 日
+**残り日数**: 1 日（**明日が本番**）
+
+**🌐 本番 URL**: <https://park-route-planner-1-togo.streamlit.app>
 
 ---
 
 ## 1. 現在のステータス
 
-**Phase 1〜6 完了 + シミュ + 当日モード実運用 + デザイン適用 + UX 微改善 + ライブ取得復活 + 後続改善 + pass_type refactor + 営業時間外 snapshot バグ修正 + K-B + 二重消化バグ修正 完了**。
-**テスト 83/83 PASS**、Streamlit 起動確認済 + 東郷さん目視確認済（複数回）。
+**Phase 1〜7 全完了**。Streamlit Community Cloud でクラウド稼働中、家族・同行者共有可能。
+**テスト 83/83 PASS**、マスタ **34 件** / レストラン 10 件。
+
+### 5/24 セッションで完了した内容（Phase 7 = デプロイ）
+
+| 主題 | コミット |
+|---|---|
+| Phase 7 artifact 作成（requirements.txt / README.md / runtime.txt） | `b698a26` |
+| GitHub repo 作成 + push（`hiroyuki-togo/park-route-planner-1`、public） | — |
+| Streamlit Cloud デプロイ + OAuth 連携 + webhook 設定 | （GUI 操作） |
+| `.devcontainer` 想定外追加（東郷さんが鉛筆アイコン操作）→ 残置 | `5c45eef` |
+| **クラウド UTC バグ修正**: `datetime.now()` → `_now_jst()` ヘルパー導入（6 箇所） | `fbfb17d` |
+| 休止 2 件削除（pirates / big_thunder、公式アトラクション一覧で確認） | `579eddd` |
+| **マスタ拡充 14 件追加**（penny_arcade / tom_sawyer_island / western_shooting / pinocchio / castle_carrousel / alice_tea_party / philharmagic / gadget_coaster / goofy_paint_play / donald_boat / chip_dale_tree / toon_park / mickey_house / stitch_encounter）+ `generate_coordinate_input_xlsx.py` に `--missing-only` フラグ追加 | `3373b8a` |
+
+### マスタ最終状態（34 件）
+
+- **pass_type=dpa**: 3 件（beauty_and_beast / baymax / splash_mountain）
+- **pass_type=priority**: 4 件（pooh / monsters_inc / haunted_mansion / star_tours）
+- **Queue-Times ライブ取得対象**: 32 件
+- **ライブ取得対象外（予測値運用）**: 2 件（**minnie_style** / **mickey_house** ← Queue-Times 未収録、既存の「⚠️ ライブ取得対象外」注記でカバー）
+
+### 大きな学び（5/24）
+
+1. **クラウドは UTC 固定**: ローカル（Mac=JST）では絶対再現しない時刻バグ。lessons #26 が警告していた「修正後の実 fetch 確認」が今まさに効いた → lessons #33 として追記
+2. **Streamlit Cloud の Reboot が確実**: 単なる git push + コード変更だけでは `@st.cache_data` 周辺のキャッシュが残り続けることがある。「Reboot app」でコンテナ強制再起動が確実 → lessons #34 として追記
+3. **東郷さんが GitHub UI の鉛筆アイコンを押すと Codespaces セットアップが走り、ローカルに無いコミットが追加される**: 事前に「鉛筆/GitHub アイコンは押さなくて OK」と展開すべきだった（lessons #4 GitHub 用語の範囲を UI ボタンまで拡張）
 
 5/22 1 日で本日累計 **13 コミット** 進めた:
 
@@ -494,27 +521,33 @@ JSON エンドポイント：`https://www.tokyodisneyresort.jp/_/realtime/tdl_at
 ## 8. 次セッション開始時のおすすめプロンプト
 
 ```
-ディズニーランドのルート生成ツール、機能完全 + sim 時刻軸拡張 + pass_type schema refactor まで完了。
-テスト 83/83 PASS、Theme Park Warm UI 適用済、マスタ 22 件（pass_type: DPA 3 / priority 5）。営業時間外 snapshot バグ + K-B + 二重消化バグ すべて解消済。
-残りは Phase 7（デプロイ）のみ。
+ディズニーランドのルート生成ツール、Phase 1-7 全完了 + 来園日前のマスタ拡充完了。
+テスト 83/83 PASS、マスタ 34 件（DPA 3 / priority 4 / ライブ対象 32 / 対象外 2）。
+Streamlit Cloud で稼働中: https://park-route-planner-1-togo.streamlit.app
 
-来園日は 2026-05-25（月）。今日は 5/24（日曜）。残り 1 日でデプロイ + リハ。
+来園日は 2026-05-25（月）= 明日（今は 5/24 日曜）。**本番直前**。
 
-着手済みプラン: docs/superpowers/plans/2026-05-23-phase-7-deployment.md
-（Task 26 = requirements.txt + README / Task 27 = GitHub repo + Streamlit Cloud / Task 28 = デプロイ後動作確認）
+5/24 セッションで対応した想定外:
+- クラウド UTC バグ（lessons #33、datetime.now() → _now_jst() ヘルパー）
+- 鉛筆アイコン経由の Codespaces 追加コミット（lessons #4 拡張）
+- マスタ拡充（休止 2 削除 + 運営 14 追加、Excel 経由で東郷さん座標入力）
 
-事前に東郷さんと合意した方針:
-- リポジトリ名: park-route-planner-1（"-1" の意図は東郷さんに確認）
-- Queue-Times が Cloud IP からブロックされた場合: (a) UA 偽装等 30 分以内の軽い対応まで → ダメなら (c) シミュ妥協
+明日の本番運用フロー（東郷さんの操作）:
+1. iPhone Safari で https://park-route-planner-1-togo.streamlit.app を開く
+2. 当日モードで「🔄 待ち時間を取得」→ Queue-Times の実値が反映される
+3. 「必ず乗る」「優先度」設定 → 「ルートを生成」
+4. 乗ったら「乗った」フラグ → 再生成、を 2-3 回繰り返す
 
-Phase 7 後に拾う小課題（PROGRESS.md §3 B 参照）:
-- K-A: 「DPA を登録してください」警告が priority must にも出る
-- K-B: 内部 label "DPA: {name}" の pass_type 別振分け
-- K-C: Attraction モデルに extra="forbid" 検討
-- K-D: star_tours / splash_mountain の avg_wait_min を実測で置換
+残小課題（K-* シリーズ）:
+- K-A: 「DPA を登録してください」警告が priority must にも出る（pass_type 別文言化）
+- K-C: Attraction モデルに extra="forbid" 検討（silent-drop 防止）
+- K-D: star_tours / splash_mountain / 追加 14 件 の avg_wait_min を実測で置換
 
-プランをそのまま実行するか、見直しが要るかを確認してから着手してください。
-GitHub の用語（PR / branch / remote / fork 等）は東郷さんが不慣れなので省略せず展開する（lessons #4）。
+来園日 5/25 当日にトラブルが起きた場合の連絡:
+- Queue-Times がクラウド IP からブロックされたら → (a) UA 偽装軽対応 → ダメなら (c) シミュ妥協（事前合意済）
+- Streamlit Cloud がスタックしたら → share.streamlit.io ダッシュボードで Reboot app
+
+GitHub の用語（PR / branch / remote / fork、UI の鉛筆/GitHub アイコン等）は東郷さんが不慣れなので省略せず展開する（lessons #4）。
 ```
 
 ### 引き継ぎチェックリスト（次セッション冒頭で確認すること）
