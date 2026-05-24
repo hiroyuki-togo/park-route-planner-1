@@ -375,3 +375,37 @@ def test_route_starts_from_current_location(sample_attractions, operating_snapsh
     first_b = next(s for s in result_b.steps if s.type == "attraction")
     # entrance 違いで最初の travel_min が異なる
     assert first_a.travel_min != first_b.travel_min
+
+
+def test_must_not_operating_warning_classification(sample_attractions):
+    """closed 状態の must アトラクションは not_operating として分類される
+
+    （time_conflict に誤分類されると「時間内に訪問できず」と表示され、
+    実際は「運休中」なのにユーザーが混乱する。lessons #36 の経緯）
+    """
+    from src.models import WaitTimeEntry, WaitTimeSnapshot
+    snapshot = WaitTimeSnapshot(
+        timestamp=datetime(2026, 5, 25, 18, 0),
+        park="TDL",
+        data=[
+            WaitTimeEntry(name="Pooh's Hunny Hunt", wait_min=30, status="operating", queue_times_id=8008),
+            # big_thunder は夕方運休中（蒸気船・鉄道などの夕方終了パターンを模擬）
+            WaitTimeEntry(name="Big Thunder Mountain", wait_min=None, status="closed", queue_times_id=7994),
+            WaitTimeEntry(name="Enchanted Tale of Beauty and the Beast", wait_min=120, status="operating", queue_times_id=8255),
+        ],
+    )
+    result = generate_route(
+        snapshot=snapshot,
+        attractions=sample_attractions,
+        constraints=make_constraints(),
+        priorities={"pooh": 5, "big_thunder": 5, "beauty_and_beast": 0},
+        must_visits={"big_thunder"},
+    )
+    assert "big_thunder" in result.unvisited_musts
+    not_op = [w for w in result.warnings if w.kind == "not_operating"]
+    assert len(not_op) == 1, f"not_operating 警告が 1 件出るべき: {result.warnings}"
+    assert not_op[0].attraction_id == "big_thunder"
+    assert "運休中" in not_op[0].message
+    # time_conflict に誤分類されていないこと
+    time_conf = [w for w in result.warnings if w.kind == "time_conflict"]
+    assert not time_conf, f"time_conflict ではなく not_operating に分類されるべき: {time_conf}"

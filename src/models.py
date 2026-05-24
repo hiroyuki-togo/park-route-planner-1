@@ -89,7 +89,12 @@ class RouteStep(BaseModel):
 
 
 class Warning(BaseModel):
-    kind: Literal["time_conflict", "dpa_window_missed", "no_dpa_for_reserved"]
+    kind: Literal[
+        "time_conflict",
+        "dpa_window_missed",
+        "no_dpa_for_reserved",
+        "not_operating",
+    ]
     message: str
     attraction_id: str | None = None
 

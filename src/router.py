@@ -237,6 +237,7 @@ def generate_route(
 
     # 終了処理：訪問できなかった must を、原因別に警告分け
     # - 予約必須なのに DPA が登録されていない → no_dpa_for_reserved
+    # - snapshot 上で運休扱い（蒸気船・鉄道など夕方終了するもの）→ not_operating
     # - それ以外（時間枠的に物理的に入らなかった等） → time_conflict
     dpa_attraction_ids = {
         b.attraction_id for b in constraints.fixed_blocks if b.type == "dpa"
@@ -251,6 +252,18 @@ def generate_route(
             warnings.append(Warning(
                 kind="no_dpa_for_reserved",
                 message=f"{attraction.name} は予約必須ですが DPA が登録されていません",
+                attraction_id=must_id,
+            ))
+        elif (
+            attraction is not None
+            and not _is_operating(attraction, snapshot)
+        ):
+            warnings.append(Warning(
+                kind="not_operating",
+                message=(
+                    f"{attraction.name} は現在運休中のため候補に入りませんでした"
+                    f"（蒸気船・鉄道などは夕方早めに運行終了することがあります）"
+                ),
                 attraction_id=must_id,
             ))
         else:
