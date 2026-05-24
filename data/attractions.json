@@ -173,23 +173,6 @@
       "avg_wait_min": 18
     },
     {
-      "id": "big_thunder",
-      "name": "ビッグサンダー・マウンテン",
-      "scrape_key": "ビッグサンダー",
-      "area": "ウエスタンランド",
-      "lat": 35.632592927238015,
-      "lng": 139.88351600419068,
-      "experience_time_min": 4,
-      "queue_walk_min": 3,
-      "default_priority": 4,
-      "pass_type": "priority",
-      "requires_reservation": false,
-      "outdoor": true,
-      "popularity_tier": "A",
-      "queue_times_id": 7994,
-      "avg_wait_min": 38
-    },
-    {
       "id": "mark_twain",
       "name": "蒸気船マークトウェイン号",
       "scrape_key": "マークトウェイン",
@@ -252,22 +235,6 @@
       "popularity_tier": "B",
       "queue_times_id": 7987,
       "avg_wait_min": 17
-    },
-    {
-      "id": "pirates",
-      "name": "カリブの海賊",
-      "scrape_key": "カリブの海賊",
-      "area": "アドベンチャーランド",
-      "lat": 35.63459498236428,
-      "lng": 139.8807746962403,
-      "experience_time_min": 15,
-      "queue_walk_min": 3,
-      "default_priority": 4,
-      "requires_reservation": false,
-      "outdoor": false,
-      "popularity_tier": "A",
-      "queue_times_id": 7986,
-      "avg_wait_min": 11
     },
     {
       "id": "western_river",

@@ -76,10 +76,9 @@ def test_dpa_attractions_count(attractions_data):
 
 def test_priority_pass_attractions_count(attractions_data):
     pri = [a for a in attractions_data["attractions"] if a.get("pass_type") == "priority"]
-    assert len(pri) == 5, f"プライオリティ対象は 5 件のはずだが {len(pri)} 件"
+    assert len(pri) == 4, f"プライオリティ対象は 4 件のはずだが {len(pri)} 件"
     pri_ids = {a["id"] for a in pri}
     assert pri_ids == {
-        "big_thunder",
         "pooh",
         "haunted_mansion",
         "star_tours",
