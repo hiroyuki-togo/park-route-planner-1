@@ -1,5 +1,11 @@
 """座標入力用の Excel 雛形を生成する。
-東郷さんが Google マップから取得した座標を B 列にペーストして共有してもらう。"""
+東郷さんが Google マップから取得した座標を B 列にペーストして共有してもらう。
+
+`--missing-only` フラグを付けると、lat または lng が null の行だけを出力し、
+別ファイル `data/coordinate_input_missing.xlsx` に保存する。マスタへの追加分
+だけを再入力してもらうときに使う（既存の入力済 xlsx を上書きしないため）。
+"""
+import argparse
 import json
 from pathlib import Path
 
@@ -81,11 +87,34 @@ def build_instructions(wb):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--missing-only",
+        action="store_true",
+        help="lat または lng が null の行のみ出力（出力先は coordinate_input_missing.xlsx）",
+    )
+    args = parser.parse_args()
+
     attractions_raw = json.loads(Path("data/attractions.json").read_text())
     restaurants_raw = json.loads(Path("data/restaurants.json").read_text())
 
-    attractions = [(a["id"], a["name"], a["area"]) for a in attractions_raw["attractions"]]
-    restaurants = [(r["id"], r["name"], r["area"]) for r in restaurants_raw["restaurants"]]
+    def _is_missing(item):
+        return item.get("lat") is None or item.get("lng") is None
+
+    if args.missing_only:
+        attractions = [
+            (a["id"], a["name"], a["area"])
+            for a in attractions_raw["attractions"]
+            if _is_missing(a)
+        ]
+        restaurants = [
+            (r["id"], r["name"], r["area"])
+            for r in restaurants_raw["restaurants"]
+            if _is_missing(r)
+        ]
+    else:
+        attractions = [(a["id"], a["name"], a["area"]) for a in attractions_raw["attractions"]]
+        restaurants = [(r["id"], r["name"], r["area"]) for r in restaurants_raw["restaurants"]]
 
     # エリア順に並べ替えると検索効率が上がる
     area_order = [
@@ -106,7 +135,8 @@ def main():
     build_sheet(wb, "アトラクション", "アトラクション名", attractions)
     build_sheet(wb, "レストラン", "レストラン名", restaurants)
 
-    out = Path("data/coordinate_input.xlsx")
+    out_name = "coordinate_input_missing.xlsx" if args.missing_only else "coordinate_input.xlsx"
+    out = Path("data") / out_name
     out.parent.mkdir(parents=True, exist_ok=True)
     wb.save(out)
     print(f"Wrote xlsx: {out} (attractions={len(attractions)}, restaurants={len(restaurants)})")
